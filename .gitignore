@@ -1,0 +1,17 @@
+.DS_Store
+
+# 家庭原照片：只留本地，不进入Git历史
+17296.jpeg
+IMG_0387.jpeg
+IMG_0806.jpeg
+
+# 原版参考视频、截图和提取帧
+过程文件/原版参考/
+
+# 可重新生成的中间数据
+过程文件/Kimi开发/bg_data.js
+过程文件/Kimi开发/pool_data.js
+过程文件/Kimi开发/bg_quantized_preview.png
+过程文件/Kimi开发/pool_baked_preview.png
+过程文件/Kimi开发/waves_preview.png
+过程文件/Kimi开发/crop_*.png

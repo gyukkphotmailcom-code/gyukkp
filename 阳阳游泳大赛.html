@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>阳阳大鲨鱼游泳大赛</title>
+<style>
+  html,body{margin:0;padding:0;background:#06283d;height:100%;display:flex;align-items:center;justify-content:center;font-family:"PingFang SC","Microsoft YaHei",sans-serif;}
+  canvas{max-width:98vw;max-height:98vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);background:#01579b;touch-action:none;cursor:pointer;}
+</style>
+</head>
+<body>
+<canvas id="game" width="960" height="540"></canvas>
+<script>
+"use strict";
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+    this.moveTo(x+r,y); this.arcTo(x+w,y,x+w,y+h,r); this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r); this.arcTo(x,y,x+w,y,r); this.closePath();
+  };
+}
+const W = 960, H = 540;
+const PX = 24;                 // 每米像素
+const TRACK = 100;             // 100 米单程
+const SURF = 200;              // 水面 y 坐标
+const DEPTH_PIX = 220;         // 最深下潜像素
+
+/* ---------- 照片素材 ---------- */
+const CROP_YY  = { sx:545, sy:510, sw:300, sh:315 };
+const CROP_DAD = { sx:1330, sy:330, sw:986, sh:1450 };
+const imgYY  = new Image();  imgYY.src  = "17296.jpeg";
+const imgDad = new Image();  imgDad.src = "IMG_0387.jpeg";
+const imgWin = new Image();  imgWin.src = "IMG_0806.jpeg";
+let okYY=false, okDad=false, okWin=false;
+imgYY.onload  = ()=>okYY=true;
+imgDad.onload = ()=>okDad=true;
+imgWin.onload = ()=>okWin=true;
+
+/* ---------- 音效 ---------- */
+let AC = null;
+function ac(){
+  if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function beep(freq, dur, type, vol, slideTo){
+  const a = ac(); if(!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'square';
+  o.frequency.setValueAtTime(freq, a.currentTime);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, a.currentTime + dur);
+  g.gain.setValueAtTime(vol || 0.15, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+  o.connect(g); g.connect(a.destination);
+  o.start(); o.stop(a.currentTime + dur + 0.02);
+}
+function noiseBurst(dur, freq, vol){
+  const a = ac(); if(!a) return;
+  const n = Math.floor(a.sampleRate * dur);
+  const buf = a.createBuffer(1, n, a.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1 - i/n);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type='lowpass'; f.frequency.value = freq;
+  const g = a.createGain(); g.gain.value = vol;
+  src.connect(f); f.connect(g); g.connect(a.destination);
+  src.start();
+}
+const sndSplash = ()=> noiseBurst(0.22, 700, 0.18);
+const sndDive   = ()=>{ noiseBurst(0.35, 380, 0.25); beep(300,0.25,'sine',0.12,120); };
+const sndBubble = ()=> beep(500+Math.random()*400, 0.06, 'sine', 0.05);
+const sndPunch  = ()=>{ beep(140, 0.09, 'square', 0.25); noiseBurst(0.1, 350, 0.22); };
+const sndRide   = ()=> beep(600, 0.18, 'square', 0.18, 180);
+const sndWhiff  = ()=> noiseBurst(0.08, 1200, 0.06);
+const sndBeep   = ()=> beep(880, 0.12, 'square', 0.18);
+const sndWhistle= ()=>{ beep(2200, 0.35, 'square', 0.2); setTimeout(()=>beep(2200,0.15,'square',0.15), 120); };
+const sndSpecial= ()=> beep(220, 0.45, 'sawtooth', 0.2, 980);
+const sndKO     = ()=>{ beep(1800,0.4,'square',0.22,900); noiseBurst(0.4,600,0.15); };
+const sndCheer  = ()=>{
+  [523,659,784,1047].forEach((f,i)=> setTimeout(()=>beep(f,0.18,'triangle',0.22), i*130));
+  noiseBurst(0.8, 2500, 0.1);
+};
+const sndSad    = ()=>{ beep(392,0.25,'triangle',0.18,330); setTimeout(()=>beep(330,0.4,'triangle',0.18,262),260); };
+
+/* ---------- 游戏状态 ---------- */
+let state = 'title';      // title | count | race | result
+let tGlobal = 0;
+let countT = 0, countStep = -1;
+let resultT = 0;
+let winType = '';         // 'touch' | 'ko'
+let playerWin = false;
+let camX = 12;
+let particles = [], popTexts = [], confetti = [];
+
+function mkF(name, type, ring, suit, isAI){
+  return {
+    name, type, ring, suit, ai: isAI,
+    x: 0, speed: 0, o2: 100, energy: 0,
+    depth: 0, targetDepth: 0,
+    punchT: 0, attackCD: 0, stun: 0,
+    rideT: 0, riding: false, rideTarget: null, rideCD: 0,
+    boostT: 0, ko: false, finish: false,
+    phase: Math.random(), bob: Math.random()*6.28, lastStroke: 9,
+    mashAcc: 0, thinkT: isAI ? 1.2 : 0, specialDelay: isAI ? 2.5 : 0.6
+  };
+}
+let yy, dad;
+function resetRace(){
+  yy  = mkF("阳阳", 'yy',  '#ffe14d', '#1e6fd9', false);
+  dad = mkF("爸爸", 'dad', '#ff9f1c', '#e07b39', true);
+  dad.x = 1.2;
+  particles = []; popTexts = []; confetti = [];
+  camX = 12; winType = ''; playerWin = false;
+}
+
+/* ---------- 粒子/文字 ---------- */
+function spawnSplash(x, y, big){
+  const n = big ? 20 : 7;
+  for(let i=0;i<n;i++){
+    particles.push({kind:'splash', x, y,
+      vx:(Math.random()-0.5)*(big?240:120), vy:-Math.random()*(big?200:100)-30,
+      life:0.5+Math.random()*0.3, t:0, r:big?3+Math.random()*4:2+Math.random()*2.5});
+  }
+}
+function spawnBubble(x, y){
+  particles.push({kind:'bubble', x:x+(Math.random()-0.5)*20, y,
+    vx:(Math.random()-0.5)*15, vy:-40-Math.random()*50,
+    life:0.8+Math.random()*0.6, t:0, r:2+Math.random()*3});
+}
+function spawnPop(x, y, text, color){
+  popTexts.push({x, y, text, color: color||'#ffe14d', t:0, life:0.8});
+}
+
+/* ---------- 坐标 ---------- */
+function screenX(fx){ return (fx - camX) * PX + W/2; }
+function fY(f){ return SURF + f.depth * DEPTH_PIX + (f.depth<0.35 ? Math.sin(f.bob)*3 : 0); }
+function near(a, b){ return Math.abs(a.x - b.x) < 3; }
+function sameMedium(a, b){ return (a.depth<0.5) === (b.depth<0.5); }
+
+/* ---------- 动作 ---------- */
+function stroke(f){
+  if(state!=='race' || f.ko || f.finish || f.stun>0) return;
+  if(f.rideT>0){                      // 被骑中：连打挣脱
+    f.rideT -= 0.12;
+    spawnSplash(screenX(f.x), SURF, false);
+    return;
+  }
+  if(f.riding) return;                // 骑着人时不用划
+  const cap = f.boostT>0 ? 9.5 : (f.depth>0.5 ? 5.6 : 7.2);
+  f.speed = Math.min(f.speed + (f.ai ? 0.72 : 0.85), cap);
+  f.phase += 0.5;
+  f.lastStroke = 0;
+  f.energy = Math.min(f.energy + (f.ai ? 2 : 3), 100);
+  if(f.depth>0.5){
+    f.o2 = Math.max(0, f.o2 - 1);     // 水下划水额外耗氧
+    spawnBubble(screenX(f.x), fY(f)-20);
+  }else{
+    spawnSplash(screenX(f.x)+18, SURF, false);
+  }
+  if(!f.ai) sndSplash();
+}
+
+function attack(f){
+  if(state!=='race' || f.ko || f.finish || f.stun>0 || f.attackCD>0 || f.rideT>0 || f.riding) return;
+  f.attackCD = 0.8;
+  f.punchT = 0.3;
+  const o = f===yy ? dad : yy;
+  if(o.ko || o.finish || o.boostT>0 || o.riding || !near(f,o) || !sameMedium(f,o)){
+    if(!f.ai) sndWhiff();
+    return;
+  }
+  const underwater = f.depth>0.5;
+  o.o2 = Math.max(0, o.o2 - (underwater ? 12 : 7));
+  o.speed *= 0.3;
+  o.x = Math.max(0, o.x - 1);
+  o.stun = 0.35;
+  spawnPop(screenX(o.x), fY(o)-46, "砰！", '#ff5a4d');
+  if(underwater) for(let i=0;i<5;i++) spawnBubble(screenX(o.x), fY(o));
+  else spawnSplash(screenX(o.x), SURF, true);
+  sndPunch();
+}
+
+function tryRideOrRise(f){
+  if(state!=='race' || f.ko || f.finish || f.stun>0 || f.rideT>0) return;
+  const o = f===yy ? dad : yy;
+  if(f.depth>0.5){                    // 水下：快速上浮
+    f.targetDepth = 0;
+    return;
+  }
+  if(f.riding || f.rideCD>0 || o.ko || o.finish || o.depth>0.5 || !near(f,o)) return;
+  // 骑头！
+  f.riding = true; f.rideTarget = o;
+  o.rideT = 1.6;
+  o.targetDepth = 1;
+  o.speed *= 0.4;
+  f.speed = 0;
+  spawnPop(screenX(o.x), SURF-60, f.ai ? "爸爸骑上来了！" : "骑上去啦！", '#ffe14d');
+  spawnSplash(screenX(o.x), SURF, true);
+  sndRide();
+}
+
+function tryDive(f){
+  if(state!=='race' || f.ko || f.finish || f.stun>0 || f.rideT>0 || f.riding) return;
+  const o = f===yy ? dad : yy;
+  if(f.depth<0.5 && !o.ko && !o.finish && o.depth<0.5 && !o.riding && o.rideT<=0 && near(f,o)){
+    // 拖对方一起下水
+    f.targetDepth = 1; o.targetDepth = 1;
+    o.o2 = Math.max(0, o.o2 - 6);
+    o.stun = Math.max(o.stun, 0.4);
+    spawnPop(screenX(o.x), SURF-50, "拖下水！", '#7ee8fa');
+    sndDive();
+    return;
+  }
+  f.targetDepth = f.depth<0.5 ? 1 : 0;
+  if(f.targetDepth===1 && !f.ai) sndDive();
+}
+
+function useSpecial(f){
+  if(state!=='race' || f.ko || f.finish || f.energy<100 || f.boostT>0 || f.rideT>0) return;
+  f.energy = 0;
+  f.boostT = 3;
+  f.speed = 8.5;
+  spawnPop(screenX(f.x), fY(f)-56, f.ai ? "爸爸冲刺！" : "大鲨鱼冲刺！！", '#ffe14d');
+  spawnSplash(screenX(f.x), SURF, true);
+  if(!f.ai) sndSpecial();
+}
+
+function endRide(v){
+  const r = v===yy ? dad : yy;
+  if(r.riding && r.rideTarget===v){
+    r.riding = false; r.rideTarget = null;
+    r.rideCD = 4.0;
+    r.speed = 1.5;
+    spawnSplash(screenX(v.x), SURF, true);
+  }
+  v.rideT = 0;
+  v.targetDepth = 0;          // 挣脱后浮回水面
+}
+
+function setResult(win, type){
+  playerWin = win; winType = type;
+  state = 'result'; resultT = 0;
+  if(win) sndCheer(); else sndSad();
+  if(type==='ko') sndKO();
+}
+
+/* ---------- AI ---------- */
+function aiThink(f, dt){
+  if(f.ko || f.finish) return;
+  const o = yy;
+  // 被骑：连打挣脱
+  if(f.rideT>0){
+    f.mashAcc += 7*dt;
+    while(f.mashAcc>=1){ f.mashAcc-=1; f.rideT -= 0.12; }
+    return;
+  }
+  if(f.riding) return;
+  // 缺氧：上浮喘气
+  if(f.o2 < 28){
+    f.targetDepth = 0;
+    if(f.depth<0.5) return;           // 在水面停着喘气
+  }
+  // 必杀
+  if(f.energy>=100){
+    f.specialDelay -= dt;
+    if(f.specialDelay<=0){ useSpecial(f); f.specialDelay = 2.0+Math.random()*2; }
+  }
+  // 划水
+  const diff = yy.x - f.x;
+  let rate = 5.0 * (diff>8 ? 1.2 : diff<-8 ? 0.8 : 1);
+  f.mashAcc += rate*dt;
+  while(f.mashAcc>=1){ f.mashAcc-=1; stroke(f); }
+  // 战术思考
+  f.thinkT -= dt;
+  if(f.thinkT>0) return;
+  f.thinkT = 0.18;
+  const dx = Math.abs(f.x - o.x);
+  if(f.depth<0.5){
+    if(o.depth>0.5 && dx<5 && f.o2>50 && Math.random()<0.5){ f.targetDepth = 1; }
+    else if(dx<2.5 && f.rideCD<=0 && f.o2>45 && o.depth<0.5 && o.rideT<=0 && Math.random()<0.05){ tryRideOrRise(f); }
+    else if(dx<3 && o.depth<0.5 && f.attackCD<=0 && Math.random()<0.12){ attack(f); }
+  }else{
+    if(f.o2<35){ f.targetDepth = 0; }
+    else if(o.depth<0.5 && f.o2>45){ f.targetDepth = 0; }
+    else if(dx<3 && o.depth>0.5 && f.attackCD<=0 && Math.random()<0.35){ attack(f); }
+  }
+}
+
+/* ---------- 更新 ---------- */
+function updateF(f, dt){
+  if(f.finish) return;
+  if(f.ko){
+    f.targetDepth = 0;
+    f.depth += (0 - f.depth)*Math.min(1, 2*dt);
+    f.speed = 0;
+    return;
+  }
+  if(f.stun>0) f.stun -= dt;
+  if(f.punchT>0) f.punchT -= dt;
+  if(f.attackCD>0) f.attackCD -= dt;
+  if(f.rideCD>0) f.rideCD -= dt;
+  f.lastStroke += dt;
+
+  // 被骑
+  if(f.rideT>0){
+    f.targetDepth = 1;
+    f.rideT -= 0.25*dt;              // 不挣脱也会慢慢脱身
+    f.o2 = Math.max(0, f.o2 - 12*dt);
+  }else{
+    const r = f===yy ? dad : yy;
+    if(r.riding && r.rideTarget===f) endRide(f);
+  }
+  // 骑乘中跟随目标
+  if(f.riding){
+    const v = f.rideTarget;
+    if(!v || v.ko || v.finish){ f.riding=false; f.rideTarget=null; }
+    else { f.x = v.x; f.depth = 0; f.targetDepth = 0; }
+  }
+
+  // 速度
+  if(f.boostT>0){
+    f.boostT -= dt;
+    f.speed = 8.5;
+    if(Math.random()<0.5) particles.push({kind:'splash', x:screenX(f.x)-24, y:fY(f)+8, vx:-80, vy:-40-Math.random()*60, life:0.4, t:0, r:2+Math.random()*3});
+    if(f.boostT<=0) f.speed = 5.5;
+  }else{
+    f.speed *= Math.max(0, 1 - 1.5*dt);
+    if(f.speed < 0.8) f.speed = 0.8;
+  }
+
+  // 前进
+  if(f.stun<=0 && !f.riding){
+    let sp = f.speed;
+    if(f.rideT>0) sp *= 0.4;
+    f.x = Math.min(f.x + sp*dt, TRACK);
+  }
+
+  // 垂直
+  const vRate = (f.targetDepth===0 && f.depth>0.5) ? 5 : 3.2;   // 上浮更快
+  f.depth += (f.targetDepth - f.depth) * Math.min(1, vRate*dt);
+
+  // 氧气
+  if(f.boostT<=0){
+    if(f.depth>0.5){
+      f.o2 = Math.max(0, f.o2 - 8*dt);
+      if(Math.random()<3*dt) spawnBubble(screenX(f.x), fY(f)-24);
+    }else{
+      const pant = f.lastStroke > 0.7 && f.rideT<=0;            // 不划水=大口喘气
+      f.o2 = Math.min(100, f.o2 + (pant ? 15 : 6)*dt);
+      if(pant && f.o2<100 && Math.random()<2*dt) spawnBubble(screenX(f.x)+14, SURF-16);
+    }
+  }
+  if(f.o2<=0 && !f.ko){
+    f.ko = true;
+    endRide(f);
+    spawnPop(screenX(f.x), SURF-60, f.name + "氧气耗尽！", '#ff5a4d');
+    setResult(f.ai, 'ko');
+  }
+
+  f.phase += f.speed*dt*0.22;
+  f.bob += dt*2.4;
+
+  if(f.x>=TRACK && !f.finish){
+    f.finish = true;
+    setResult(!f.ai, 'touch');
+  }
+}
+
+function update(dt){
+  tGlobal += dt;
+  for(const p of particles){
+    p.t += dt;
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    if(p.kind==='splash') p.vy += 420*dt;
+  }
+  particles = particles.filter(p=>p.t<p.life && !(p.kind==='bubble' && p.y<SURF-30));
+  for(const p of popTexts){ p.t+=dt; p.y-=40*dt; }
+  popTexts = popTexts.filter(p=>p.t<p.life);
+
+  if(state==='count'){
+    countT -= dt;
+    const step = Math.ceil(countT);
+    if(step!==countStep){
+      countStep = step;
+      if(step>0) sndBeep(); else { sndWhistle(); state='race'; }
+    }
+    return;
+  }
+  if(state==='result'){
+    resultT += dt;
+    if(playerWin && confetti.length<120 && Math.random()<0.35){
+      confetti.push({x:Math.random()*W, y:-10, vy:80+Math.random()*120, vx:(Math.random()-0.5)*60,
+        w:6+Math.random()*6, h:8+Math.random()*8, rot:Math.random()*6.28, vr:(Math.random()-0.5)*6,
+        color:'hsl('+Math.floor(Math.random()*360)+',90%,60%)'});
+    }
+    for(const c of confetti){ c.x+=c.vx*dt; c.y+=c.vy*dt; c.rot+=c.vr*dt; }
+    confetti = confetti.filter(c=>c.y<H+20);
+    return;
+  }
+  if(state!=='race') return;
+
+  aiThink(dad, dt);
+  updateF(yy, dt);
+  updateF(dad, dt);
+  // 镜头跟随两人中间
+  const mid = (yy.x + dad.x)/2;
+  const target = Math.max(20, Math.min(80, mid));
+  camX += (target - camX)*Math.min(1, 5*dt);
+}
+
+/* ---------- 绘制 ---------- */
+function drawPhotoHead(x, y, r, img, crop, ok, dir, ring, fallbackCh){
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.closePath();
+  ctx.fillStyle = '#cfe8ff'; ctx.fill();
+  ctx.clip();
+  if(ok){
+    const scale = (r*2) / Math.min(crop.sw, crop.sh) * 1.15;
+    const dw = crop.sw*scale, dh = crop.sh*scale;
+    if(dir===-1){ ctx.translate(x,y); ctx.scale(-1,1); ctx.translate(-x,-y); }
+    ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, x-dw/2, y-dh/2, dw, dh);
+  }else{
+    ctx.fillStyle = '#ffd9a8'; ctx.fillRect(x-r, y-r, r*2, r*2);
+    ctx.fillStyle = '#333'; ctx.font = 'bold '+r+'px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(fallbackCh, x, y);
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832);
+  ctx.lineWidth = 3; ctx.strokeStyle = ring; ctx.stroke();
+}
+
+function drawFighter(f){
+  const x = screenX(f.x);
+  if(x<-100 || x>W+100) return;
+  const underwater = f.depth>0.35;
+  const y = fY(f);
+
+  ctx.save();
+  if(underwater) ctx.globalAlpha = 0.72;
+  if(f.stun>0) ctx.globalAlpha *= 0.85;
+
+  // 必杀光环
+  if(f.boostT>0){
+    ctx.beginPath(); ctx.arc(x, y, 48+Math.sin(tGlobal*12)*6, 0, 6.2832);
+    ctx.fillStyle = 'rgba(255,225,77,0.28)'; ctx.fill();
+  }
+
+  // 水面波纹圈
+  if(!underwater && !f.ko){
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(x, SURF+6, 34+Math.sin(tGlobal*4+f.bob)*4, 7, 0, 0, 6.2832); ctx.stroke();
+  }
+
+  if(f.ko){
+    // 翻肚皮漂浮
+    ctx.fillStyle = f.suit;
+    ctx.beginPath(); ctx.ellipse(x, SURF+8, 32, 13, 0, 0, 6.2832); ctx.fill();
+    drawPhotoHead(x-30, SURF-2, 20, f.type==='yy'?imgYY:imgDad, f.type==='yy'?CROP_YY:CROP_DAD, f.type==='yy'?okYY:okDad, 1, '#ff5a4d', f.name[0]);
+    ctx.fillStyle = '#ff5a4d'; ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('X  X', x, SURF-24);
+    ctx.restore();
+    return;
+  }
+
+  // 身体
+  const tilt = underwater ? 0.05 : -0.15;
+  ctx.fillStyle = f.suit;
+  ctx.beginPath(); ctx.ellipse(x-6, y+12, 30, 13, tilt, 0, 6.2832); ctx.fill();
+
+  // 手臂
+  if(!f.riding){
+    const ang = f.phase*Math.PI*2;
+    let hx, hy;
+    if(f.punchT>0){
+      const ext = 26 + (0.3-f.punchT)/0.3*22;
+      hx = x + ext; hy = y + (underwater?0:-6);
+    }else{
+      hx = x + 4 + Math.cos(ang)*24;
+      hy = y + Math.sin(ang)*24*(underwater?0.8:1);
+    }
+    ctx.strokeStyle = '#ffd9a8'; ctx.lineWidth = 8; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(x-2, y+4); ctx.lineTo(hx, hy); ctx.stroke();
+    if(f.punchT>0){
+      ctx.fillStyle = '#ffd9a8';
+      ctx.beginPath(); ctx.arc(hx, hy, 8, 0, 6.2832); ctx.fill();
+    }
+  }
+
+  // 头
+  const hy2 = underwater ? y-6 : y-14;
+  drawPhotoHead(x+10, hy2, 23, f.type==='yy'?imgYY:imgDad, f.type==='yy'?CROP_YY:CROP_DAD, f.type==='yy'?okYY:okDad, 1, f.ring, f.name[0]);
+
+  // 眩晕星星 / 被骑提示
+  if(f.stun>0 || f.rideT>0){
+    for(let i=0;i<3;i++){
+      const a = tGlobal*4 + i*2.09;
+      ctx.fillStyle = '#ffe14d'; ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('★', x + Math.cos(a)*26, y - 32 + Math.sin(a)*8);
+    }
+  }
+  if(f.rideT>0){
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(f.ai ? '' : '连打空格挣脱！', x, y+56);
+  }
+  ctx.restore();
+}
+
+function drawRider(f){
+  // 骑在对方头上的那位
+  const v = f.rideTarget;
+  if(!v) return;
+  const x = screenX(v.x);
+  const y = SURF - 18;
+  ctx.save();
+  ctx.fillStyle = f.suit;
+  ctx.beginPath(); ctx.ellipse(x, y+16, 16, 16, 0, 0, 6.2832); ctx.fill();  // 蹲坐身体
+  drawPhotoHead(x, y-12, 20, f.type==='yy'?imgYY:imgDad, f.type==='yy'?CROP_YY:CROP_DAD, f.type==='yy'?okYY:okDad, 1, f.ring, f.name[0]);
+  ctx.restore();
+}
+
+function drawWorld(){
+  // 天空
+  const sky = ctx.createLinearGradient(0,0,0,SURF);
+  sky.addColorStop(0,'#b3e5fc'); sky.addColorStop(1,'#e1f5fe');
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,SURF);
+  // 云
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for(let i=0;i<4;i++){
+    const cx = ((i*280 + tGlobal*8) % (W+160)) - 80;
+    ctx.beginPath(); ctx.ellipse(cx, 50+i*22, 46, 15, 0, 0, 6.2832); ctx.fill();
+  }
+  // 彩旗
+  for(let i=0;i<24;i++){
+    const fx = i*42 + 10;
+    ctx.fillStyle = 'hsl('+(i*47%360)+',85%,60%)';
+    ctx.beginPath(); ctx.moveTo(fx,100); ctx.lineTo(fx+22,100); ctx.lineTo(fx+11,126); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(120,120,120,0.6)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0,100); ctx.lineTo(W,100); ctx.stroke();
+
+  // 水
+  const wg = ctx.createLinearGradient(0,SURF,0,H);
+  wg.addColorStop(0,'#29b6f6'); wg.addColorStop(0.5,'#0288d1'); wg.addColorStop(1,'#014a7a');
+  ctx.fillStyle = wg; ctx.fillRect(0,SURF,W,H-SURF);
+  // 水面波浪
+  ctx.strokeStyle = 'rgba(255,255,255,0.65)'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for(let x=0;x<=W;x+=12){
+    const y = SURF + Math.sin(x*0.035 + tGlobal*2.6)*4;
+    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2;
+  for(let l=1;l<=2;l++){
+    ctx.beginPath();
+    for(let x=0;x<=W;x+=16){
+      const y = SURF + l*70 + Math.sin(x*0.03 + tGlobal*2 + l*1.7)*5;
+      if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  // 起点/终点墙
+  for(const wx of [0, TRACK]){
+    const sx = screenX(wx);
+    if(sx>-60 && sx<W+60){
+      ctx.fillStyle = '#eceff1';
+      ctx.fillRect(wx===0 ? sx-26 : sx, SURF-40, 26, H-SURF+40);
+      ctx.fillStyle = '#90a4ae';
+      for(let yy2=SURF-30; yy2<H-10; yy2+=22) ctx.fillRect(wx===0 ? sx-26 : sx, yy2, 26, 3);
+      if(wx===TRACK){
+        ctx.fillStyle = '#e53935';
+        ctx.fillRect(sx, SURF-66, 90, 26);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('终点', sx+45, SURF-53);
+      }
+    }
+  }
+}
+
+function drawO2Bar(x, y, w, h, f, color){
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.roundRect(x-8, y-8, w+16, h+22, 8); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(f.name + (f.depth>0.5 ? '（水下）' : ''), x, y-0+ -12+0);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x, y+4, w, h);
+  const low = f.o2 < 30;
+  ctx.fillStyle = low && Math.sin(tGlobal*10)>0 ? '#ff3d00' : color;
+  ctx.fillRect(x+2, y+6, (w-4)*Math.max(0,f.o2/100), h-4);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
+  ctx.strokeRect(x, y+4, w, h);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('氧气', x+6, y+4+h/2+1);
+}
+
+function drawHUD(){
+  drawO2Bar(16, 16, 190, 18, yy, '#29b6f6');
+  drawO2Bar(16, 62, 190, 18, dad, '#ffa726');
+  // 必杀槽
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(16, 108, 190, 16);
+  ctx.fillStyle = yy.energy>=100 ? '#ffe14d' : '#ffb300';
+  ctx.fillRect(18, 110, 186*yy.energy/100, 12);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth=2; ctx.strokeRect(16,108,190,16);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(yy.energy>=100 ? '必杀就绪!按L' : '必杀槽', 22, 117);
+  // 距离
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.roundRect(W-244, 12, 228, 52, 8); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  ctx.fillText('距离 ' + Math.floor(yy.x) + ' / 100m', W-24, 30);
+  const lead = yy.x - dad.x;
+  ctx.fillStyle = lead>=0 ? '#ffe14d' : '#ff8a80';
+  ctx.font = 'bold 15px sans-serif';
+  ctx.fillText(lead>=0 ? '领先 ' + lead.toFixed(1) + 'm' : '落后 ' + (-lead).toFixed(1) + 'm', W-24, 54);
+  // 进度条
+  const px0=260, px1=W-260, py=30;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.roundRect(px0-14, py-16, px1-px0+28, 46, 8); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(px0,py); ctx.lineTo(px1,py); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('起点', px0, py+18); ctx.fillText('终点', px1, py+18);
+  for(const f of [yy, dad]){
+    const px = px0 + (f.x/TRACK)*(px1-px0);
+    ctx.fillStyle = f===yy ? '#ffe14d' : '#ff9f1c';
+    ctx.beginPath(); ctx.arc(px, py, f===yy?8:7, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+  }
+}
+
+const BTN = {
+  stroke:  {x:24,  y:466, w:150, h:60, label:'划水！', sub:'连打 空格'},
+  attack:  {x:190, y:466, w:130, h:60, label:'攻击',  sub:'按 J'},
+  ride:    {x:336, y:466, w:150, h:60, label:'骑头/上浮', sub:'按 K'},
+  dive:    {x:502, y:466, w:130, h:60, label:'潜水',  sub:'按 S'},
+  special: {x:648, y:466, w:130, h:60, label:'必杀',  sub:'按 L'},
+};
+function drawButtons(){
+  for(const k of Object.keys(BTN)){
+    const b = BTN[k];
+    const ready = k!=='special' || yy.energy>=100;
+    ctx.fillStyle = ready ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 14); ctx.fill();
+    ctx.strokeStyle = '#01579b'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = ready ? '#01579b' : '#78909c';
+    ctx.textAlign='center';
+    ctx.font = 'bold 22px sans-serif'; ctx.textBaseline='middle';
+    ctx.fillText(b.label, b.x+b.w/2, b.y+23);
+    ctx.font = '13px sans-serif';
+    ctx.fillText(b.sub, b.x+b.w/2, b.y+45);
+  }
+}
+
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha = 1 - p.t/p.life;
+    if(p.kind==='bubble'){
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.stroke();
+    }else{
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  for(const p of popTexts){
+    ctx.globalAlpha = 1 - p.t/p.life;
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=4;
+    ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTitle(){
+  drawWorld();
+  ctx.fillStyle = 'rgba(1,40,70,0.55)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const title = '阳阳大鲨鱼游泳大赛';
+  ctx.font = 'bold 54px sans-serif';
+  let tx = W/2 - ctx.measureText(title).width/2 + 27;
+  for(const ch of title){
+    const bounce = Math.sin(tGlobal*3 + tx*0.05)*8;
+    ctx.fillStyle = '#0d47a1';
+    ctx.fillText(ch, tx+3, 126+bounce+3);
+    ctx.fillStyle = '#ffe14d';
+    ctx.fillText(ch, tx, 126+bounce);
+    tx += ctx.measureText(ch).width;
+  }
+  ctx.fillStyle = '#7ee8fa'; ctx.font = 'bold 20px sans-serif';
+  ctx.fillText('—— 热血格斗 · 氧气大作战 ——', W/2, 186);
+  drawPhotoHead(W/2-150, 282, 56, imgYY, CROP_YY, okYY, 1, '#ffe14d', '阳');
+  drawPhotoHead(W/2+150, 282, 56, imgDad, CROP_DAD, okDad, -1, '#ff9f1c', '爸');
+  ctx.fillStyle = '#ff5a4d'; ctx.font = 'bold 44px sans-serif';
+  ctx.fillText('VS', W/2, 282);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
+  ctx.fillText('阳阳', W/2-150, 356);
+  ctx.fillText('爸爸', W/2+150, 356);
+  ctx.font = '17px sans-serif';
+  ctx.fillText('连打【空格】划水 ｜ 【J】攻击 ｜ 【K】骑头/上浮 ｜ 【S】潜水/拖人下水 ｜ 【L】必杀', W/2, 408);
+  ctx.fillStyle = '#7ee8fa'; ctx.font = 'bold 17px sans-serif';
+  ctx.fillText('在水下会消耗氧气！先游到终点，或把爸爸的氧气耗光，都能赢！', W/2, 440);
+  ctx.fillStyle = '#ffe14d'; ctx.font = 'bold 22px sans-serif';
+  ctx.fillText('按 空格 或 点击屏幕 开始比赛！', W/2, 490 + Math.sin(tGlobal*4)*4);
+}
+
+function drawCount(){
+  drawWorld();
+  drawFighter(yy); drawFighter(dad);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const n = Math.ceil(countT);
+  ctx.font = 'bold 120px sans-serif';
+  ctx.fillStyle = '#ffe14d';
+  ctx.strokeStyle = '#0d47a1'; ctx.lineWidth = 8;
+  const txt = n>0 ? String(n) : 'GO!';
+  ctx.strokeText(txt, W/2, H/2);
+  ctx.fillText(txt, W/2, H/2);
+  ctx.font = 'bold 24px sans-serif'; ctx.fillStyle='#fff';
+  ctx.fillText('各就各位——', W/2, H/2-110);
+}
+
+function drawRace(){
+  drawWorld();
+  // 先画被骑的，再画骑乘者
+  drawFighter(yy); drawFighter(dad);
+  if(yy.riding) drawRider(yy);
+  if(dad.riding) drawRider(dad);
+  drawParticles();
+  drawHUD();
+  drawButtons();
+}
+
+function drawResult(){
+  drawRace();
+  ctx.fillStyle = 'rgba(1,30,55,0.78)';
+  ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(playerWin){
+    const msg = winType==='ko' ? 'KO！爸爸氧气耗尽！' : '阳阳率先触壁！';
+    ctx.fillStyle = '#ffe14d'; ctx.font = 'bold 50px sans-serif';
+    ctx.strokeStyle='#7a5b00'; ctx.lineWidth=6;
+    ctx.strokeText(msg, W/2, 76);
+    ctx.fillText(msg, W/2, 76);
+    ctx.font = 'bold 40px sans-serif';
+    ctx.strokeText('阳阳是冠军！', W/2, 128);
+    ctx.fillText('阳阳是冠军！', W/2, 128);
+    if(okWin){
+      const maxW=340, maxH=280;
+      const r = Math.min(maxW/imgWin.width, maxH/imgWin.height);
+      const dw = imgWin.width*r, dh = imgWin.height*r;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(W/2-dw/2-8, 160-8, dw+16, dh+16);
+      ctx.drawImage(imgWin, W/2-dw/2, 160, dw, dh);
+    }
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 21px sans-serif';
+    ctx.fillText('大鲨鱼阳阳击败爸爸，骑着大马庆祝啦！', W/2, 468);
+    for(const c of confetti){
+      ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.rot);
+      ctx.fillStyle = c.color; ctx.fillRect(-c.w/2, -c.h/2, c.w, c.h);
+      ctx.restore();
+    }
+  }else{
+    const msg = winType==='ko' ? '阳阳氧气耗尽…' : '爸爸先触壁…';
+    ctx.fillStyle = '#ffe14d'; ctx.font = 'bold 46px sans-serif';
+    ctx.fillText(msg, W/2, 120);
+    drawPhotoHead(W/2, 236, 54, imgYY, CROP_YY, okYY, 1, '#ffe14d', '阳');
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(winType==='ko' ? '记住：水下待久了要浮上去喘气！下次一定赢！' : '多用骑头和拖下水消耗爸爸的氧气，下次一定赢！', W/2, 340);
+  }
+  ctx.fillStyle = '#ffe14d'; ctx.font = 'bold 22px sans-serif';
+  ctx.fillText('按 R 或 点击屏幕 再来一次', W/2, 505 + Math.sin(tGlobal*4)*3);
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(state==='title') drawTitle();
+  else if(state==='count') drawCount();
+  else if(state==='race') drawRace();
+  else drawResult();
+}
+
+/* ---------- 输入 ---------- */
+function startGame(){
+  resetRace();
+  state = 'count';
+  countT = 3.2; countStep = -1;
+}
+window.addEventListener('keydown', e=>{
+  if(['Space','KeyJ','KeyK','KeyL','KeyS','KeyR','Enter','ArrowDown'].includes(e.code)) e.preventDefault();
+  ac();
+  if(e.repeat) return;
+  if(state==='title'){ startGame(); return; }
+  if(state==='result'){
+    if(resultT>0.8) startGame();
+    return;
+  }
+  if(state!=='race') return;
+  if(e.code==='Space') stroke(yy);
+  else if(e.code==='KeyJ') attack(yy);
+  else if(e.code==='KeyK') tryRideOrRise(yy);
+  else if(e.code==='KeyS' || e.code==='ArrowDown') tryDive(yy);
+  else if(e.code==='KeyL') useSpecial(yy);
+});
+cv.addEventListener('pointerdown', e=>{
+  ac();
+  const rect = cv.getBoundingClientRect();
+  const x = (e.clientX-rect.left) * (W/rect.width);
+  const y = (e.clientY-rect.top) * (H/rect.height);
+  if(state==='race'){
+    const hit = Object.keys(BTN).find(k=>{
+      const b = BTN[k];
+      return x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h;
+    });
+    if(hit==='attack') attack(yy);
+    else if(hit==='ride') tryRideOrRise(yy);
+    else if(hit==='dive') tryDive(yy);
+    else if(hit==='special') useSpecial(yy);
+    else stroke(yy);
+    return;
+  }
+  if(state==='title'){ startGame(); return; }
+  if(state==='result' && resultT>0.8) startGame();
+});
+
+/* ---------- 主循环 ---------- */
+resetRace();
+let last = performance.now();
+function loop(now){
+  const dt = Math.min((now-last)/1000, 0.05);
+  last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
