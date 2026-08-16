@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>阶段2 头像预览（返修版）</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", monospace; background:#202028; color:#E8E8F0; margin:16px; }
+  h1 { font-size:18px; } h2 { font-size:15px; margin:14px 0 6px; }
+  .note { font-size:12px; color:#9A9AA8; max-width:1100px; line-height:1.7; }
+  .person { border-top:1px solid #3A3A48; padding-top:6px; }
+  .prow { display:flex; gap:14px; align-items:flex-start; }
+  .photo-cell img { width:216px; height:216px; image-rendering:auto; border:1px solid #555; display:block; }
+  .photo-cell .cap { font-size:11px; color:#9A9AA8; width:216px; margin-top:4px; line-height:1.5; }
+  .grid { display:grid; grid-template-columns:repeat(4, auto); gap:10px; }
+  .card { background:#2A2A34; border:1px solid #3A3A48; padding:6px; }
+  .card .cap { font-size:12px; margin-bottom:4px; }
+  .scales { display:flex; gap:8px; align-items:flex-end; }
+  .scale { text-align:center; }
+  .scale i { display:block; font-size:10px; color:#9A9AA8; font-style:normal; margin-top:2px; }
+  canvas { image-rendering:pixelated; background:transparent; }
+  .scale canvas { background:#585860; }
+  #ab section, .ab { border-top:1px solid #3A3A48; margin-top:14px; padding-top:6px; }
+  .abrow { display:flex; gap:8px; align-items:center; margin:6px 0; }
+  .abtag { font-size:14px; width:20px; }
+  .abcell { background:#8C8C8C; padding:4px; line-height:0; }
+  body.safe .photo-cell { display:none; }
+  .palette { font-size:11px; color:#9A9AA8; margin:4px 0 0; }
+</style>
+</head>
+<body>
+<h1>阶段2 像素头像预览（返修版：统一调色板 / 左右朝向 / 3x验收 / 匿名A/B）</h1>
+<p class="note">
+调色板对齐主游戏 PAL：轮廓 #000000、白 #FCFCFC、肤 #FCB88C、肤暗 #D88A58，双方共用统一阴影 #B06840；
+阳阳另加泳帽蓝2档，爸爸另加发/镜框棕2档（每人 透明+8色 以内）。<br>
+左/右朝向为分别烘焙的静态像素数组，镜像仅作结构基础，已人工修正泳镜高光侧；运行时不使用 CSS/Canvas 镜像。
+本页不含任何内嵌图片二进制；照片为本地已忽略文件外链。URL 加 <b>#safe</b> 隐藏照片栏，供 Git 安全截图。
+</p>
+
+  <section class="person">
+    <h2>阳阳</h2>
+    <div class="prow">
+      <div class="photo-cell">
+        <img src="crop_yy_ref.png" alt="阳阳原照片裁剪">
+        <div class="cap">原照片裁剪（规定裁剪框 530,480,340,340，本地引用，已忽略不进Git）</div>
+      </div>
+      <div class="grid">
+      <div class="card">
+        <div class="cap">右 · 正常</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-right-0-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-right-0-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-right-0-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">右 · 挨打</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-right-1-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-right-1-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-right-1-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">右 · 气绝</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-right-2-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-right-2-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-right-2-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">右 · 败北</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-right-3-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-right-3-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-right-3-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 正常</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-left-0-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-left-0-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-left-0-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 挨打</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-left-1-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-left-1-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-left-1-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 气绝</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-left-2-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-left-2-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-left-2-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 败北</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-yy-left-3-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-yy-left-3-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-yy-left-3-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+  <section class="person">
+    <h2>爸爸</h2>
+    <div class="prow">
+      <div class="photo-cell">
+        <img src="crop_dd_ref.png" alt="爸爸原照片裁剪">
+        <div class="cap">原照片裁剪（规定裁剪框 1214,880,1100,1100，本地引用，已忽略不进Git）</div>
+      </div>
+      <div class="grid">
+      <div class="card">
+        <div class="cap">右 · 正常</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-right-0-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-right-0-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-right-0-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">右 · 挨打</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-right-1-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-right-1-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-right-1-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">右 · 气绝</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-right-2-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-right-2-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-right-2-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">右 · 败北</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-right-3-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-right-3-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-right-3-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 正常</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-left-0-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-left-0-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-left-0-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 挨打</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-left-1-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-left-1-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-left-1-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 气绝</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-left-2-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-left-2-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-left-2-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="cap">左 · 败北</div>
+        <div class="scales">
+          <div class="scale"><canvas id="c-dd-left-3-1" width="24" height="24"></canvas><i>1x 24×24</i></div>
+          <div class="scale"><canvas id="c-dd-left-3-3" width="72" height="72"></canvas><i>3x 72×72 验收</i></div>
+          <div class="scale"><canvas id="c-dd-left-3-8" width="192" height="192"></canvas><i>8x 192×192</i></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+  <section class="ab">
+    <h2>匿名 A/B（中性背景，无姓名/照片/队伍标识）</h2>
+    <div class="abrow"><span class="abtag">A</span><div class="abcell"><canvas id="ab-A-right-0" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-right-1" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-right-2" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-right-3" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-left-0" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-left-1" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-left-2" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-A-left-3" width="72" height="72"></canvas></div></div><div class="abrow"><span class="abtag">B</span><div class="abcell"><canvas id="ab-B-right-0" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-right-1" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-right-2" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-right-3" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-left-0" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-left-1" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-left-2" width="72" height="72"></canvas></div><div class="abcell"><canvas id="ab-B-left-3" width="72" height="72"></canvas></div></div>
+  </section>
+<script>
+const FACES = {"yy": {"right": {"正常": ["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.....", "..OSddSSSSSSSSddSSO.....", "..OSOdOSSSSSSdOdSO......", "..OSOWdSSSSSSWOdSO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSSSdddSSSs.......", "....sSSSSSSSSSSs........", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"], "挨打": ["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.W...", "..OSddddSSSSddddSO.WW...", "..OSO.OSSSSSSO.OSO......", "..OS.O.SSSSSS.O.SO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSSSWWWSSSs.......", "....sSSSSSSSSSSs........", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"], "气绝": ["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.....", "..OSddSSSSSSSSddSSO.....", "..OSOdOSSSSSSdOdSO......", "..OSdOdSSSSSSOdOSO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSOOOOOOSSSSs.....", "....sSSSOOOOOOSSs.......", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"], "败北": ["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.W...", "..OSddSSSSSSSSddSSOWW...", "..OSdddSSSSSSdddSO......", "..OSSSSSSSSSSSSSSO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSSddddSSSs.......", "....sSSSSSSSSSSs........", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"]}, "left": {"正常": ["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSddSSSSSSSSddSO..", "......OSdOdSSSSSSOdOSO..", "......OSOWdSSSSSSWOdSO..", "......OSSSSSSSSSSSSSSO..", ".......OSSSSSSSSSSSSO...", ".......sSSSdddSSSSSSs...", "........sSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"], "挨打": ["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", "...W.OSSSSSSSSSSSSSSSO..", "...WW.OSddddSSSSddddSO..", "......OSO.OSSSSSSO.OSO..", "......OS.O.SSSSSS.O.SO..", "......OSSSSSSSSSSSSSsO..", ".......OSSSSSSSSSSSsO...", ".......sSSSWWWSSSSSSs...", "........sSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"], "气绝": ["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSddSSSSSSSSddSO..", "......OSdOdSSSSSSOdOSO..", "......OSOdOSSSSSSdOdSO..", "......OSSSSSSSSSSSSSSO..", ".......OSSSSSSSSSSSSO...", ".....sSSSSOOOOOOSSSSd...", ".......sSSOOOOOOSSSd....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"], "败北": ["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", "...W.OSSSSSSSSSSSSSSSO..", "...WWOSSddSSSSSSSSddSO..", "......OSdddSSSSSSdddSO..", "......OSSSSSSSSSSSSSSO..", "......OSSSSSSSSSSSSSsO..", ".......OSSSSSSSSSSSsO...", ".......sSSSddddSSSSSs...", "........sSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"]}}, "dd": {"right": {"正常": ["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO......", "..OHHSSSSSSSSSSHHSO.....", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSOdSSSShhSSSdOShO....", ".OhSSSSSSShhSSSSSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSdddSSSS.......", "....sSSSSSSSSSSSs.......", "....sSSSWWWWWWWWSs......", "....sSSSSSSSSSSSs.......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"], "挨打": ["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO..W...", "..OHHSSSSSSSSSSHHSOWW...", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSO.OSSShhSO.OSShO....", ".OhSSO.OSShhSO.OSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSdddSSSS.......", "....sSSSSdddddSSSs......", "....sSSWWWWWWWWSSs......", "....sSSSSSSSSSSSs.......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"], "气绝": ["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO......", "..OHHSSSSSSSSSSHHSO.....", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSOOSSSShhSOOSSShO....", ".OhSOOSSSShhSOOSSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSdddSSSS.......", "....sSSSSSSSSSSSs.......", "....sSSSOOOOOOOOSs......", "....sSSSOOOOOOOOSs......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"], "败北": ["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO..W...", "..OHHSSSSSSSSSSHHSOWW...", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSSdddSShhSdddSShO....", ".OhSSSSSSShhSSSSSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSdddSSSS.......", "....sSSSSSSSSSSSs.......", "....sSSSOOOOOOOOSs......", "....sSSSddddddddSs......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"]}, "left": {"正常": ["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "......OHHHSSSSSSSSHHHO..", ".....OSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSOdSSShhSSSSdOShO.", "....OhSSSSSShhSSSSSSShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSdddSSSSSS....", ".......sSSSSSSSSSSSs....", "......sSWWWWWWWWSSSs....", ".......sSSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"], "挨打": ["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "...W..OHHHSSSSSSSSHHHO..", "...WWOSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSSO.OShhSSSO.OShO.", "....OhSSO.OShhSSO.OSShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSdddSSSSSS....", "......sSSSdddddSSSSs....", "......sSSWWWWWWWWSSs....", ".......sSSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"], "气绝": ["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "......OHHHSSSSSSSSHHHO..", ".....OSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSSSOOShhSSSSOOShO.", "....OhSSSOOShhSSSSOOShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSdddSSSSSS....", ".......sSSSSSSSSSSSs....", "......sSOOOOOOOOSSSs....", "......sSOOOOOOOOSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"], "败北": ["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "...W..OHHHSSSSSSSSHHHO..", "...WWOSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSSdddShhSSdddSShO.", "....OhSSSSSShhSSSSSSShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSdddSSSSSS....", ".......sSSSSSSSSSSSs....", "......sSOOOOOOOOSSSs....", "......sSddddddddSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"]}}};
+const PAL = {"yy": {".": null, "O": "#000000", "S": "#FCB88C", "s": "#D88A58", "d": "#B06840", "W": "#FCFCFC", "C": "#3C9CF0", "c": "#1E5AA8"}, "dd": {".": null, "O": "#000000", "S": "#FCB88C", "s": "#D88A58", "d": "#B06840", "W": "#FCFCFC", "H": "#38241A", "h": "#5C4030"}};
+const EXPRS = ["正常", "挨打", "气绝", "败北"];
+const DIRS = ["right", "left"];
+const ORDER = { yy: 'A', dd: 'B' };
+if (location.hash === '#safe') document.body.classList.add('safe');
+function draw(canvas, person, dir, expr, scale) {
+  const rows = FACES[person][dir][expr], pal = PAL[person];
+  const off = document.createElement('canvas'); off.width = 24; off.height = 24;
+  const octx = off.getContext('2d');
+  const im = octx.createImageData(24, 24);
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) {
+    const hex = pal[rows[y][x]];
+    if (!hex) continue;
+    const i = (y * 24 + x) * 4;
+    im.data[i] = parseInt(hex.slice(1, 3), 16);
+    im.data[i+1] = parseInt(hex.slice(3, 5), 16);
+    im.data[i+2] = parseInt(hex.slice(5, 7), 16);
+    im.data[i+3] = 255;
+  }
+  octx.putImageData(im, 0, 0);
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+}
+for (const p of ['yy', 'dd']) for (const d of DIRS) EXPRS.forEach((e, i) => {
+  for (const s of [1, 3, 8]) draw(document.getElementById(`c-${p}-${d}-${i}-${s}`), p, d, e, s);
+  draw(document.getElementById(`ab-${ORDER[p]}-${d}-${i}`), p, d, e, 3);
+});
+</script>
+</body>
+</html>
