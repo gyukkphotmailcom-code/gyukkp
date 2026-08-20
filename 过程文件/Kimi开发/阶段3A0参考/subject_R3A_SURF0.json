@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "stage": "3A-R3A",
+  "artifactKind": "original-human-subject-mask",
+  "pose": "SURF0",
+  "width": 31,
+  "height": 21,
+  "sourceFile": "surf0_mask_source.png",
+  "sourceSha256": "e7665833b0f755785faab35442225789a0d3b0ba8b0995c7d0c4b416a07afa4c",
+  "legacyMaskFile": "mask_SURF0.png",
+  "legacyMaskSha256": "f9c509b6e481b5f345e8b3463fc41851c9551ce3c1ee6c80a14e8a3b1512279f",
+  "legacyMaskJsonFile": "mask_SURF0.json",
+  "legacyMaskJsonSha256": "eefec93ddcf89a95186a24c55833d1c965353323e31dae8a9e187acba2f2e51e",
+  "sourceProvenance": {
+    "sourceFile": "原版参考/官方截图/jp-action-e.gif",
+    "sourceSha256": "698d51036ec2fc82ac1c40fa4cdcd784dda5192bca95a7b378d575f449712f72",
+    "sourceOriginalSize": [
+      256,
+      192
+    ],
+    "frameIndex": null,
+    "frameBase": 0,
+    "fps": null,
+    "maskCropBox": [
+      105,
+      88,
+      136,
+      109
+    ],
+    "referenceCropFile": "surf0_mask_source.png",
+    "referenceCropSha256": "e7665833b0f755785faab35442225789a0d3b0ba8b0995c7d0c4b416a07afa4c"
+  },
+  "pixels": 457,
+  "visibleBBox": [
+    0,
+    0,
+    30,
+    20
+  ],
+  "components4": 1,
+  "pointsSha256": "89355ff0e8ad12c4d003432a7b54589f481ef662f2c9cea0a5db6431b5d57063",
+  "negativeSpacePixels": 194,
+  "negativeSpaceSha256": "2ce163dae0a09a95767ad709d5321fb18086e7296c62a88cb6d6e0b2db83a64a",
+  "maskSha256": "c77a8c68103c7a90a93369ba3e35ae6fdc71978e2f9749371a4d54612bdc874e",
+  "classifierId": "original-human-nearest-semantic",
+  "classifierVersion": 1,
+  "fillHoles": false,
+  "personalized": false,
+  "futureIdentityStatus": "not-defined-in-R3A",
+  "reviewHeadRoiXYXY": [
+    0,
+    0,
+    21,
+    11
+  ],
+  "evidenceLimit": "静态宣传图；证明可见人物像素，不证明动画时序或ROM原生色",
+  "recipe": "显式逐行clean runs；相对R2仅补8个原图连续人物边缘；无fill_holes/平滑",
+  "addedPixels": [
+    [
+      1,
+      11
+    ],
+    [
+      19,
+      9
+    ],
+    [
+      25,
+      13
+    ],
+    [
+      26,
+      13
+    ],
+    [
+      28,
+      14
+    ],
+    [
+      28,
+      15
+    ],
+    [
+      28,
+      16
+    ],
+    [
+      29,
+      17
+    ]
+  ],
+  "removedPixels": []
+}

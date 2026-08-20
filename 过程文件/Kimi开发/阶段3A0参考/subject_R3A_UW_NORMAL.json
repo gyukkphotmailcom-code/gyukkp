@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "stage": "3A-R3A",
+  "artifactKind": "original-human-subject-mask",
+  "pose": "UW_NORMAL",
+  "width": 39,
+  "height": 21,
+  "sourceFile": "uw_official_b_source_R.png",
+  "sourceSha256": "88f085a4a6d3bd59b30d23bd4fb173dfe541abb99ed4b40304f0dbf76574ded8",
+  "legacyMaskFile": "mask_UW_OFFICIAL_B_R.png",
+  "legacyMaskSha256": "a67aefa4fca9b202376d605017514d025debac9f41ed92927d1c9bc6a77ad56e",
+  "legacyMaskJsonFile": "mask_UW_OFFICIAL_B_R.json",
+  "legacyMaskJsonSha256": "665ac4cb18a6780d8b699592fb62242d0c58cc3036ea55c7885ad1b3a47d1363",
+  "sourceProvenance": {
+    "sourceFile": "原版参考/官方截图/jp-action-b.gif",
+    "sourceSha256": "80e1a0321324d56f594c2ef851946629915a90d7060d5309c3c5de664cf15c57",
+    "sourceOriginalSize": [
+      256,
+      192
+    ],
+    "frameIndex": null,
+    "frameBase": 0,
+    "fps": null,
+    "maskCropBox": [
+      99,
+      141,
+      138,
+      162
+    ],
+    "sourceFacing": "R-candidate (static front-biased; exact movement direction TBD)",
+    "normalizedFacing": "L-candidate",
+    "transform": "horizontal_flip",
+    "referenceCropFile": "uw_official_b_source_R.png",
+    "referenceCropSha256": "88f085a4a6d3bd59b30d23bd4fb173dfe541abb99ed4b40304f0dbf76574ded8",
+    "recipeId": "official-b-rgt5-components-row-spans-v1",
+    "recipeVersion": 1,
+    "pixels": 425
+  },
+  "pixels": 425,
+  "visibleBBox": [
+    1,
+    1,
+    37,
+    19
+  ],
+  "components4": 1,
+  "pointsSha256": "26a28617f551117dd1a089e1c42cacfc76ee2ea9c99dfc0715b34aeaeb921815",
+  "negativeSpacePixels": 278,
+  "negativeSpaceSha256": "0d3ab2a4ee0edcc6c8404806756c076e011e514697b7f471b549d285866dd574",
+  "maskSha256": "996e54d91a25c603ebc8c157f4b00a30f66f2894e07c9b3369bb7ed147a608bb",
+  "classifierId": "original-human-nearest-semantic",
+  "classifierVersion": 1,
+  "fillHoles": false,
+  "personalized": false,
+  "futureIdentityStatus": "not-defined-in-R3A",
+  "reviewHeadRoiXYXY": [
+    10,
+    1,
+    25,
+    15
+  ],
+  "evidenceLimit": "日版静态宣传图；证明可见人体姿态/调色，不证明动画时序或ROM CHR来源",
+  "recipe": "jp-action-b.gif官方裁剪：R>5的8连通分量剔除两个气泡，仅保留人体主分量和右前臂/拳；逐分量按行span，gap<=1才桥接；无主观补肢体/全局填洞/平滑",
+  "addedPixels": [],
+  "removedPixels": []
+}

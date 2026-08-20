@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "pose": "JUMP_AIR",
+  "width": 55,
+  "height": 42,
+  "sourceFile": "原版参考/官方截图/jp-action-c.gif",
+  "sourceSha256": "75c2d446adaaa15a46e9bc8bcaf47a483dfb2502095dc581ed68e9b6680ba077",
+  "sourceOriginalSize": [
+    256,
+    192
+  ],
+  "frameIndex": null,
+  "frameBase": 0,
+  "fps": null,
+  "maskCropBox": [
+    73,
+    35,
+    128,
+    77
+  ],
+  "sourceFacing": "L",
+  "normalizedFacing": "L",
+  "transform": "none",
+  "recipeId": "gif-color-seed-explicit-cleanup",
+  "recipeVersion": 2,
+  "cleanupLog": [
+    "去跳台/梯子区 (0, 32, 13, 41) 移除36px [对照原图确认为设施]",
+    "去跳台/梯子区 (14, 27, 22, 41) 移除111px [对照原图确认为设施]",
+    "去跳台/梯子区 (0, 0, 10, 1) 移除0px [对照原图确认为设施]",
+    "填内部洞 35px: [(14, 17), (14, 18), (16, 19), (16, 20), (16, 21), (17, 11), (17, 21), (18, 11), (18, 22), (18, 23), (19, 11), (19, 23), (20, 11), (20, 24), (21, 11), (21, 24), (22, 11), (22, 24), (23, 24), (24, 24), (25, 24), (26, 23), (26, 24), (27, 23), (28, 22), (28, 23), (29, 21), (30, 11), (31, 11), (32, 10), (32, 11), (33, 10), (33, 11), (35, 19), (35, 20)]",
+    "去台沿残点 x11-12 y28-31 移除8px"
+  ],
+  "pixels": 1387,
+  "visibleBBox": [
+    0,
+    0,
+    54,
+    41
+  ],
+  "maskSha256": "a8664813fdc9c32f4a7fd87618b99b679667caaf605ba8e552a66ab8cc939409",
+  "referenceCropFile": "jump_mask_source.png",
+  "referenceCropSha256": "8ac663c4c78846ce8f20825517aca38d01573c0e24d9f62bbb6ad7d95f55b81a",
+  "sourceVersion": "日版官方宣传图",
+  "generation": "颜色种子+独立连通分量+显式人工清理；全部步骤见 cleanupLog",
+  "evidenceLimit": "静态宣传图单帧，只证明姿态/轮廓，不证明时序"
+}
