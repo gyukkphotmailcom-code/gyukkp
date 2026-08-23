@@ -1,0 +1,105 @@
+{
+  "stage": "R3B-I-P2",
+  "status": "prototype-not-integrated",
+  "palette": {
+    "outline": "#101018",
+    "skin": "#F0A06E",
+    "skin_hi": "#FFC28E",
+    "skin_lo": "#C96D4E",
+    "white": "#F8F5E9",
+    "blue": "#278FDF",
+    "blue_hi": "#71C5F4",
+    "blue_lo": "#124D97",
+    "yy_suit": "#1767B2",
+    "dad_suit": "#252932",
+    "hair": "#111018",
+    "hair_hi": "#3A2B24",
+    "water_hi": "#A9ECFF",
+    "water": "#35B8E8",
+    "water_lo": "#1475A6",
+    "under": "#093C63",
+    "under_lo": "#062942"
+  },
+  "sprites": {
+    "SURFACE_yy_L": {
+      "file": "sprites/SURFACE_yy_L.png",
+      "w": 44,
+      "h": 30,
+      "root": [
+        22,
+        25
+      ],
+      "pngSha256": "780b0cf2c731ba1c373638fb3f349fd53e8d2be68431a0a59ae886e661e7ee31"
+    },
+    "SURFACE_dad_L": {
+      "file": "sprites/SURFACE_dad_L.png",
+      "w": 44,
+      "h": 30,
+      "root": [
+        22,
+        25
+      ],
+      "pngSha256": "f269640d59cda6b46a14123f1054a9ed79145178d24bd7a5a9074f46fab4b63d"
+    },
+    "JUMP_yy_L": {
+      "file": "sprites/JUMP_yy_L.png",
+      "w": 48,
+      "h": 44,
+      "root": [
+        25,
+        42
+      ],
+      "pngSha256": "8294afb6709d330e9b28ec3b901b535a552501ea8d3878c1842143016db11237"
+    },
+    "JUMP_dad_L": {
+      "file": "sprites/JUMP_dad_L.png",
+      "w": 48,
+      "h": 44,
+      "root": [
+        25,
+        42
+      ],
+      "pngSha256": "8caed739f4eb33ba657696416e0780c93e3cb6f829504f1129c039ee797c4f06"
+    },
+    "SWIM_yy_L": {
+      "file": "sprites/SWIM_yy_L.png",
+      "w": 52,
+      "h": 30,
+      "root": [
+        25,
+        24
+      ],
+      "pngSha256": "0a52cf1cadd345f421cbe8b7640700d7dc9baa27ab1f1e11c3a1e51c3e603ff1"
+    },
+    "SWIM_dad_L": {
+      "file": "sprites/SWIM_dad_L.png",
+      "w": 52,
+      "h": 30,
+      "root": [
+        25,
+        24
+      ],
+      "pngSha256": "9c3820ddb4ec001e2e09311c47558cf50dbe570edb0146df19440e68d6614d17"
+    },
+    "BREATH_yy_L": {
+      "file": "sprites/BREATH_yy_L.png",
+      "w": 44,
+      "h": 42,
+      "root": [
+        22,
+        38
+      ],
+      "pngSha256": "b5a89f68e9b26d97146ef797a4caab256fc77a5644172f212908def76079424d"
+    },
+    "BREATH_dad_L": {
+      "file": "sprites/BREATH_dad_L.png",
+      "w": 44,
+      "h": 42,
+      "root": [
+        22,
+        38
+      ],
+      "pngSha256": "b77d6cd2e0478038b41901c9758478373c87bbaf3bf68ee9915d4d78f4c833f3"
+    }
+  }
+}

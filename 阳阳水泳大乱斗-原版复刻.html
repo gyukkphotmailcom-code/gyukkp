@@ -14,8 +14,9 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;}
 <script>
 "use strict";
 /* =====================================================
-   《阳阳 VS 爸爸 · 水泳バトルロイヤル》原版复刻 — 阶段1(返修)
-   只复刻静态比赛画面(无移动/攻击/AI/粒子/声音/触屏/头像)。
+   《阳阳 VS 爸爸 · 水泳バトルロイヤル》原版复刻 — 阶段3
+   阶段1静态画面 + 阶段3: 60Hz状态机移动/跳跃/下潜/八向游动/换气。
+   暂不实现: 攻击/AI/计时倒数/声音/触屏。
    布局基准(256×224 原生实机帧测量):
      比赛区 y=0..167 / HUD y=168..223
      远景(日版固定像素背景) y=0..72 / 透视水面 y=72..101
@@ -310,52 +311,750 @@ function drawPool(){
   ctx.fillStyle = PAL.black; ctx.fillRect(0, DIV_Y, LW, 2);
 }
 
-/* ---------- 游泳者 (阶段1 临时像素小人, 阶段2 换照片头像) ---------- */
-function drawSwimmers(){
-  /* 阳阳 @ 水面: 黑发 Q 版俯泳, 朝右 (锚 94,76) */
-  const ax = 94, ay = 76;
-  ctx.fillStyle = PAL.skin;
-  ctx.fillRect(ax, ay + 9, 12, 4);                             // 背/肩
-  ctx.fillStyle = PAL.dadHair;
-  ctx.fillRect(ax + 1, ay, 12, 1);
-  ctx.fillRect(ax, ay + 1, 14, 8);                             // 黑发
-  ctx.fillStyle = PAL.skin;
-  ctx.fillRect(ax + 10, ay + 3, 6, 6);                         // 脸(朝右)
-  ctx.fillStyle = PAL.white; ctx.fillRect(ax + 12, ay + 4, 2, 2);
-  ctx.fillStyle = PAL.black; ctx.fillRect(ax + 13, ay + 5, 1, 1);
-  ctx.fillRect(ax + 13, ay + 8, 2, 1);                         // 嘴
-  ctx.fillStyle = PAL.skin;
-  ctx.fillRect(ax + 13, ay + 10, 9, 2);                        // 前伸手臂
-  ctx.fillStyle = PAL.skinD;
-  ctx.fillRect(ax, ay + 12, 12, 1);                            // 肩下阴影
-  ctx.fillStyle = PAL.wave;                                    // 静态水花(固定坐标)
-  ctx.fillRect(ax - 6, ay + 11, 3, 1); ctx.fillRect(ax + 23, ay + 9, 3, 1);
-  ctx.fillRect(ax - 8, ay + 14, 2, 1); ctx.fillRect(ax + 26, ay + 13, 2, 1);
-  /* 爸爸 @ 水下: 横向泳姿, 朝左, 青蓝专用色版 (锚 148,144) */
-  const bx = 148, by = 144;
-  ctx.fillStyle = PAL.uwSkin;
-  ctx.fillRect(bx - 9, by + 3, 9, 2);                          // 前伸手臂
-  ctx.fillRect(bx - 12, by + 2, 3, 3);                         // 手
-  ctx.fillRect(bx, by, 10, 8);                                 // 头
-  ctx.fillStyle = PAL.uwBody;
-  ctx.fillRect(bx, by, 10, 3);                                 // 泳帽
-  ctx.fillStyle = PAL.white; ctx.fillRect(bx + 1, by + 4, 2, 2);
-  ctx.fillStyle = PAL.uwOut; ctx.fillRect(bx + 1, by + 5, 1, 1);
-  ctx.fillStyle = PAL.uwBody;
-  ctx.fillRect(bx + 10, by + 1, 13, 7);                        // 躯干
-  ctx.fillStyle = PAL.uwOut;
-  ctx.fillRect(bx + 23, by + 1, 4, 7);                         // 泳裤
-  ctx.fillStyle = PAL.uwSkin;                                  // 双腿(剪式)
-  ctx.fillRect(bx + 27, by - 1, 10, 3); ctx.fillRect(bx + 37, by - 2, 3, 2);
-  ctx.fillRect(bx + 27, by + 6, 10, 3); ctx.fillRect(bx + 37, by + 8, 3, 2);
-  ctx.fillStyle = PAL.uwOut;                                   // 底部描边
-  ctx.fillRect(bx, by + 8, 10, 1); ctx.fillRect(bx + 10, by + 8, 13, 1);
-  ctx.fillStyle = PAL.white;                                   // 静态气泡(固定坐标)
-  ctx.fillRect(bx - 7, by - 5, 2, 2); ctx.fillRect(bx - 12, by - 8, 1, 1);
-  ctx.fillStyle = PAL.waterLo; ctx.fillRect(bx - 4, by - 10, 2, 2);
+/* =====================================================
+   阶段3(返修): 原版移动/跳跃/换气 — 整数定点 60Hz 状态机
+   - SCALE=256 定点: 坐标/速度/斜向系数全整数; 仅绘制时 >>8
+   - 阶段2头像(24x24, 正常左/右)已烘焙接入 + 16x16像素身体
+   - DIVE/UW/EMERGE 为三种不同姿态; 水下整体青蓝调色映射
+   - 爸爸静止脚本; 阳阳键盘或内置脚本; 暂不实现攻击与AI
+   ===================================================== */
+
+/* ---------- 定点数 ---------- */
+const SCALE = 256;
+const FP = v => Math.round(v * SCALE);   // 仅初始化常量用
+
+/* ---------- ORIGINAL_TUNING: 阶段3 实测/待标定参数(全部整数定点) ---------- */
+/* 实测来源(R6复核; 旧f12533段两名角色重叠, 作废):
+   下潜: USA录像 f15615..f15620 (5帧间隔@30fps=10tick@60Hz; f15614仅动作前参考帧;
+         横卧→转向→垂直下沉; 最后平姿f15615 bbox x62..87 y66..89(cx73.1), 最后可见下沉帧f15619
+         bbox x66..87 y68..96(cx78.0): Δx≈+4.9px(基本原地), 底缘Δy=+7px, 质心Δy=+6.1px; 无接触);
+   水下方向: f15554..f15680 (水平移动=横卧; 悬浮/垂直移动=竖直俯身团(头朝下); 上浮离水=竖直头朝上→EMERGE)。
+   30fps→60Hz 换算: 1帧间隔=2tick。
+   超级换气(R6复核降级为待标定占位): f16044..f16066不是完整干净样本——f16066角色仍在空中,
+         f16068起与另一角色接触; 检查至f16075未见独立完整回落; USA全录像2672采样23候选段目检
+         均未找到第二段无接触完整换气(JP录像为静态标题封面, 无游戏画面)
+         → breathPrep/Rise/Hold/Fall/LockTicks(4/12/18/10=44)、breathRiseFp、breathDriftFp
+           全部为待标定占位(数值沿用上轮单样本估计), 不得称实测;
+         Oxy结束回满=复审指令硬性规格, 保留。
+   游泳循环: 全程未找到无接触稳定划水段 → swimSpeedFp/swimCycleTicks/boostCycleTicks/emergeTicks 待标定(占位值)。
+   跳跃: 泳池段无无接触水面A跳录像样本 → jumpTicks/jumpMoveXFp/帧切换点待标定; 滞空姿态依据官方截图jp-action-c(横向飞扑)。
+   换气水平位移: 待标定占位=0(单样本−87px疑方向输入, 未确认动作自带); 参数已接入BREATH状态机(由方向键消费)。 */
+const ORIGINAL_TUNING = {
+  /* 水面漂浮 (锚点=脚底中心 y=108: 水面线≈96, 漂浮没入12px) */
+  surfFootY: 108,
+  floatBobPx: 1, floatBobTicks: 30,      // 待标定(节奏)
+  surfDriftFp: 64,                       // 0.25px/tick 待标定(实机是否允许持续平移未确认)
+  /* 跳跃 (滞空姿态=jp-action_c官方截图; 时长/位移无录像样本→待标定) */
+  jumpTicks: 50,                         // 待标定(无录像证据)
+  jumpRiseFp: FP(28),                    // 脚离水≈20px + 漂浮没入≈8px (jp-action-c)
+  jumpMoveXFp: 128,                      // 0.5px/tick→全程约25px 待标定
+  jumpFrame1Tick: 10, jumpFrame2Tick: 30,// 起跳蹲/滞空展开/下落 三帧切换点 待标定
+  /* 下潜 (实测 f15615..f15620: 5间隔@30fps=10tick; 必须按住↓推进, 松开按diveBackSpeed弹回) */
+  diveTicks: 10,                         // 实测
+  diveFlatTicks: 2, diveTurnTicks: 2,    // 三过程帧切换: t≤2横卧/t≤4转向/其余垂直 (f15615横卧, f15616转向, f15617..19垂直)
+  diveSinkFp: FP(12),                    // 脚底 108→120, 与UW入点连续
+  diveBackSpeed: 2,                      // 松开↓每tick回退t
+  /* 上浮 (无干净上浮录像段→待标定, 占位10) */
+  emergeTicks: 10,                       // 待标定
+  /* 水下游动 (无干净游泳循环→速度/划水节奏待标定, 占位值) */
+  uwTopFp: FP(120), uwBotFp: FP(166),    // UW全姿态统一脚底锚点可动域(R6删竖直例外uwVertBotFp; 竖直组合顶80..126/底≤166不出界)
+  swimSpeedFp: 77,                       // ≈0.30px/tick 待标定(占位)
+  swimCycleTicks: 4,                     // 普通划水每姿态tick 待标定(占位)
+  boostCycleTicks: 2,                    // 加速划水节奏(明显更快) 待标定(占位)
+  boostPerPressFp: 64,                   // 0.25 仅水下移动中A新边沿累积 待标定
+  boostMaxFp: 384, boostDecayFp: 3,      // 1.5 / ≈0.012 待标定; 离开UW立即清零
+  diagFp: 181,                           // 0.7071→181/256 整数斜向系数
+  uwBubbleEvery: 45, boostBubbleEvery: 24, // 待标定
+  uwBubbleFwdFp: FP(16), uwBubbleUpFp: FP(22),   // 水下气泡生成点(头前方/上方, 相对脚底锚点)
+  /* Oxy (fp) */
+  airMaxFp: FP(63),                      // 待标定(=HUD Oxy槽像素宽)
+  airDrainFp: 9,                         // ≈1/28每tick 水下耗氧 待标定
+  airRecoverFp: 26,                      // ≈1/10每tick 水面自然恢复 待标定
+  /* B超级换气 (R6复核降级为待标定占位: f16044..f16066不完整——f16066角色仍空中, f16068起与他角色接触;
+     检查至f16075未见独立完整回落; USA全录像扫描无第二段无接触样本(JP录像=静态标题封面);
+     四段分配4/12/18/10=44沿用上轮单样本估计, 非实测; 完成事件设airFp=airMaxFp——复审指令硬性规格, 保留; 过程中不回氧) */
+  breathPrepTicks: 4,                    // 低姿准备 待标定占位(单样本f16044..f16046)
+  breathRiseTicks: 12,                   // 上升 待标定占位
+  breathHoldTicks: 18,                   // 顶峰保持 待标定占位
+  breathFallTicks: 10,                   // 回落 待标定占位
+  breathLockTicks: 44,                   // = 4+12+18+10 待标定占位(非实测)
+  breathRiseFp: FP(12),                  // 脚底108→96=升至水线(没入深度12px), 定义性占位, 非原版实测缩放
+  breathDriftFp: 0,                      // 换气水平速度/每tick(方向键驱动, 已接入BREATH状态机); 待标定占位=0(单样本−87px疑方向输入)
+  breathBubbleEvery: 8,                  // 换气气泡间隔 待标定
+  breathBubbleFwdFp: FP(8), breathBubbleYFp: FP(52), // 换气气泡: 头前上方(绝对y; 挺起头顶≈56之上)
+  /* 气泡/水花 (像素精灵, 生命周期全可调) */
+  splashTicks: 16,                       // 水花寿命 待标定
+  splashYFp: FP(96),                     // 水花生成y(水面线)
+  bubbleRiseUwFp: 96,                    // 0.375px/tick 水下气泡上浮 待标定
+  bubblePopY: 94,                        // 水下气泡破灭线(水面带下沿) 待标定
+  bubbleLifeUw: 140,                     // 水下气泡寿命 待标定
+  bubbleRiseAirFp: 128,                  // 0.5px/tick 换气气泡(空气中) 待标定
+  bubbleLifeAir: 48,                     // 换气气泡寿命 待标定
+  bubbleFrameT: 18,                      // 气泡动画分帧点(2x2→1x1) 待标定
+};
+
+/* ---------- 输入 (键盘: 方向 + Z/空格=A, X=B; 或内置测试脚本) ---------- */
+const Input = { L:0, R:0, U:0, D:0, A:0, B:0, pA:0, pB:0 };
+const KEYMAP = { ArrowLeft:'L', ArrowRight:'R', ArrowUp:'U', ArrowDown:'D', KeyZ:'A', Space:'A', KeyX:'B' };
+let scriptMode = null;
+addEventListener('keydown', e => {
+  const k = KEYMAP[e.code]; if (!k || scriptMode) return;
+  if (!Input[k]) { if (k === 'A') Input.pA = 1; if (k === 'B') Input.pB = 1; }
+  Input[k] = 1; e.preventDefault();
+});
+addEventListener('keyup', e => {
+  const k = KEYMAP[e.code]; if (!k || scriptMode) return;
+  Input[k] = 0; e.preventDefault();
+});
+
+/* 验收脚本: 垂直跳(无预选)/预选右跳/预选左跳/点按下潜弹回/按住下潜/右游加速/静止A(头朝下)/纯下移(头朝下)/八向/移动中A/按住U上浮(头朝上)/自然回氧/耗空Oxy→B换气回满/水面双向漂移 */
+const DEMO_SCRIPT = [
+  [10,'A',1],[11,'A',0],                                   // 垂直跳(无预选→dx=0)
+  [80,'R',1],[100,'R',0],[120,'A',1],[121,'A',0],          // 预选右→松开后A仍右跳
+  [200,'L',1],[220,'L',0],[240,'A',1],[241,'A',0],         // 预选左→左跳
+  [320,'D',1],[330,'D',0],                                 // 点按下潜(10tick)→弹回水面
+  [360,'D',1],[374,'D',0],                                 // 按住下潜(diveTicks=10 实测f15615..f15620)→UW
+  [410,'R',1],[420,'A',1],[421,'A',0],[430,'A',1],[431,'A',0], // 右游+A边沿×2加速(横卧)
+  [450,'R',0],
+  [460,'A',1],[461,'A',0],                                 // 静止A(不加boost); 无横向输入→头朝下蜷身姿态
+  [470,'D',1],[485,'D',0],                                 // 纯下移(竖直姿态)
+  [490,'R',1],[496,'D',1],[502,'D',0],[502,'U',1],[508,'U',0],[508,'R',0],[508,'L',1],
+  [514,'D',1],[520,'D',0],[520,'U',1],[526,'U',0],         // 八向: 右→右下→右上→左→左下→左上
+  [528,'D',1],[534,'D',0],[536,'U',1],[542,'U',0],[542,'L',0], // 单下/单上, 松开L
+  [544,'R',1],[546,'A',1],[547,'A',0],                     // 移动中A(保boost)
+  [548,'R',0],[548,'U',1],[560,'A',1],[561,'A',0],[570,'U',0], // 按住U(竖直上升)到顶→EMERGE(boost清零)→SURF
+  [638,'AIR',0],                                           // 耗空Oxy(验证B完成回满)
+  [640,'B',1],[641,'B',0],                                 // B超级换气(准备/上升/顶峰/回落四段+气泡, 完成设airMax)
+  [700,'R',1],[720,'R',0],                                 // 水面右漂
+  [760,'L',1],[780,'L',0],                                 // 水面左漂
+];
+function applyScript(tick){
+  for (const [t, k, v] of DEMO_SCRIPT){
+    if (t === tick){
+      if (k === 'AIR'){ yy.airFp = v * 256; continue; }    // 测试钩子: 直接设Oxy(整数fp)
+      if (k === 'A' && v) Input.pA = 1;
+      if (k === 'B' && v) Input.pB = 1;
+      Input[k] = v;
+    }
+  }
 }
 
-/* ---------- HUD (y 168..223, 黑底白框, 8x8 字体节奏) ---------- */
+/* ---------- 阶段2头像 (24x24, 正常表情 左/右, 烘焙自 avatar_paint.py 已确认数据) ---------- */
+const AVATAR = {"yy": {"right": ["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.....", "..OSddSSSSSSSSddSSO.....", "..OSOdOSSSSSSdOdSO......", "..OSOWdSSSSSSWOdSO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSSSdddSSSs.......", "....sSSSSSSSSSSs........", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"], "left": ["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSddSSSSSSSSddSO..", "......OSdOdSSSSSSOdOSO..", "......OSOWdSSSSSSWOdSO..", "......OSSSSSSSSSSSSSSO..", ".......OSSSSSSSSSSSSO...", ".......sSSSdddSSSSSSs...", "........sSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"]}, "dd": {"right": ["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO......", "..OHHSSSSSSSSSSHHSO.....", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSOdSSSShhSSSdOShO....", ".OhSSSSSSShhSSSSSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSdddSSSS.......", "....sSSSSSSSSSSSs.......", "....sSSSWWWWWWWWSs......", "....sSSSSSSSSSSSs.......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"], "left": ["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "......OHHHSSSSSSSSHHHO..", ".....OSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSOdSSShhSSSSdOShO.", "....OhSSSSSShhSSSSSSShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSdddSSSSSS....", ".......sSSSSSSSSSSSs....", "......sSWWWWWWWWSSSs....", ".......sSSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"]}};
+const AVATAR_PAL = {"yy": {".": null, "O": "#000000", "S": "#FCB88C", "s": "#D88A58", "d": "#B06840", "W": "#FCFCFC", "C": "#3C9CF0", "c": "#1E5AA8"}, "dd": {".": null, "O": "#000000", "S": "#FCB88C", "s": "#D88A58", "d": "#B06840", "W": "#FCFCFC", "H": "#38241A", "h": "#5C4030"}};
+
+/* ---------- 换气两帧头像 (嘴部patch: 张嘴黑洞; build_sprites.py生成, 与normal差异>0) ---------- */
+const AVATAR_BREATH = {"yy": {"right": [["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.....", "..OSddSSSSSSSSddSSO.....", "..OSOdOSSSSSSdOdSO......", "..OSOWdSSSSSSWOdSO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSSOOOdSSSs.......", "....sSSSSOOOSSSs........", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"], ["........................", "........................", "........OOOOOOO.........", "......OOCCCCCCCOO.......", ".....OCCCcCCcCCCCO......", "....OCCCCCCCCCCCCO......", "....OCWWWWCCWWWWCO......", "....OCWccWWWWccWCO......", "....OCWWWWCCWWWWCO......", "....OCCCCCCCCCCCCO......", "..OWWCCCCCCCCCCCCCOO....", "..OOSSSSSSSSSSSSSSOO....", "..OOSSSSSSSSSSSSSSOO....", "..OSSSSSSSSSSSSSSSO.....", "..OSddSSSSSSSSddSSO.....", "..OSOdOSSSSSSdOdSO......", "..OSOWdSSSSSSWOdSO......", "..OSSSSSSSSSSSSSSO......", "...OSSSSSSSSSSSSO.......", "...sSSSSOOOOOSSSs.......", "....sSSSSOOOSSSs........", ".....sSSSSSSSSs.........", "......ssSSSSss..........", "........ssss............"]], "left": [["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSddSSSSSSSSddSO..", "......OSdOdSSSSSSOdOSO..", "......OSOWdSSSSSSWOdSO..", "......OSSSSSSSSSSSSSSO..", ".......OSSSSSSSSSSSSO...", ".......sSSSOOOSSSSSSs...", "........sSSOOOSSSSSs....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"], ["........................", "........................", ".........OOOOOOO........", ".......OOCCCCCCCOO......", "......OCCCCcCCcCCCO.....", "......OCCCCCCCCCCCCO....", "......OCWWWWCCWWWWCO....", "......OCWccWWWWccWCO....", "......OCWWWWCCWWWWCO....", "......OCCCCCCCCCCCCO....", "....OOCCCCCCCCCCCCCWWO..", "....OOSSSSSSSSSSSSSSOO..", "....OOSSSSSSSSSSSSSSOO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSddSSSSSSSSddSO..", "......OSdOdSSSSSSOdOSO..", "......OSOWdSSSSSSWOdSO..", "......OSSSSSSSSSSSSSSO..", ".......OSSSSSSSSSSSSO...", ".......sSSOOOOOSSSSSs...", "........sSSOOOSSSSSs....", ".........sSSSSSSSSs.....", "..........ssSSSSss......", "............ssss........"]]}, "dd": {"right": [["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO......", "..OHHSSSSSSSSSSHHSO.....", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSOdSSSShhSSSdOShO....", ".OhSSSSSSShhSSSSSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSdddSSSS.......", "....sSSSSOOOOSSSs.......", "....sSSSSSOOSSSSSs......", "....sSSSSSSSSSSSs.......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"], ["........................", "......OOOOOOOOO.........", "....OOHHHHHHHHHHOO......", "...OHHHHHHHHHHHHHHO.....", "..OHHHHHSSSSHHHHHHO.....", "..OHHHSSSSSSSSHHHO......", "..OHHSSSSSSSSSSHHSO.....", "..OSSSSSSSSSSSSSSSO.....", "..OSSSSSSSSSSSSSSSO.....", "..hhhhhhhhhhhhhhhhhhOOhh", "OhhSSSSSSShhSSSSSSShhO..", ".OhSOdSSSShhSSSdOShO....", ".OhSSSSSSShhSSSSSShO....", "..OOhSSSSSSSSSSShOO.....", "...OSSSSSSSSSSSSO.......", "....SSSSSSOOOSSSS.......", "....sSSSOOOOOSSSs.......", "....sSSSSOOOOSSSSs......", "....sSSSSSSSSSSSs.......", ".....sSSSSSSSSs.........", "......sSSSSSSs..........", ".......ssssss...........", "........................", "........................"]], "left": [["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "......OHHHSSSSSSSSHHHO..", ".....OSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSOdSSShhSSSSdOShO.", "....OhSSSSSShhSSSSSSShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSdddSSSSSS....", ".......sSSSOOOOSSSSs....", "......sSSSSSOOSSSSSs....", ".......sSSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"], ["........................", ".........OOOOOOOOO......", "......OOHHHHHHHHHHOO....", ".....OHHHHHHHHHHHHHHO...", ".....OhHHHHHSSSSHHHHHO..", "......OHHHSSSSSSSSHHHO..", ".....OSHHSSSSSSSSSSHHO..", ".....OSSSSSSSSSSSSSSSO..", ".....OSSSSSSSSSSSSSSSO..", "hhOOhhhhhhhhhhhhhhhhhh..", "..OhhWSSSSSShhSSSSSSShhO", "....OhSOdSSShhSSSSdOShO.", "....OhSSSSSShhSSSSSSShO.", ".....OOhSSSSSSSSSSShOO..", ".......OSSSSSSSSSSSSO...", ".......SSSSOOOSSSSSS....", ".......sSSSOOOOOSSSs....", "......sSSSSOOOOSSSSs....", ".......sSSSSSSSSSSSs....", ".........sSSSSSSSSs.....", "..........sSSSSSSs......", "...........ssssss.......", "........................", "........................"]]}};
+
+/* ---------- 16x16 像素身体 (统一16x16画布; 右向基准; 左向逐像素翻转非CSS镜像) ---------- */
+/* 色键: O轮廓 S肤 T队色泳衣; 直立总结构40px=头24+身16, dd头下移2px接下巴;
+   R6(build_sprites.py生成+校验): 全姿态带O深色轮廓; DIVE三过程帧(横卧/转向/垂直, 实测f15615..f15620);
+   JUMP空中帧JA=横向飞扑(jp-action-c官方截图, HEAD_SIDE侧脸头+水平身+前后分腿);
+   UW三态: H横卧(HEAD_SIDE)/U头朝上(=EMERGE布局+正脸头, 水下青蓝)/D头朝下蜷身(UWV身+HEAD_DOWN);
+   直立姿态躯干+双臂+双腿可读, 各身体有效高≥12px(SURF≥5), 头身有效像素真实相接 */
+const BODY = {
+SURF: [
+ ["....OOOOOO......",
+ "...OSSSSSSO.....",
+ "..OSSSTTTSSO....",
+ ".OSSTTTTTTSOOOO.",
+ ".OSTTTTTTSSSSSO.",
+ "..OOOOOOOOOOOOO.",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................"],
+ ["....OOOOOO......",
+ "...OSSSSSSO.....",
+ "..OSSSTTTSSO....",
+ ".OSOSSTTTTTTSO..",
+ "OSSSSTTTTTTTSO..",
+ ".OOOOOOOOOOOOO..",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................"],
+],
+JC: [
+ ["....OOOOOO......",
+ "...OSSSSSSO.....",
+ "..OOSSSSSSOO....",
+ "..OSSTTTTTSO....",
+ ".OSSSTTTTTSSO...",
+ ".OOTTTTTTTTOO...",
+ "...OTTTTTTO.....",
+ "...OSSSSSSO.....",
+ "..OOSSSSSSOO....",
+ "..OSSO..OSSO....",
+ "..OSO....OSO....",
+ "..OOO....OOO....",
+ "................",
+ "................",
+ "................",
+ "................"],
+],
+JA: [
+ ["...OO...........",
+ "..OSSO..........",
+ "..OSSSO.........",
+ "..OSSSSO........",
+ ".OSSSSTTTTO.....",
+ ".OSSTTTTTTTO....",
+ ".OSTTTTTTTTO....",
+ ".OSSSSSSSSSSSSSO",
+ ".OSSSSSSSSSSSO..",
+ "..OOOOOOOOOOOO..",
+ "..OSSSSO........",
+ "..OSSSO.........",
+ ".OSSO...........",
+ ".OOO............",
+ "................",
+ "................"],
+],
+JF: [
+ ["....OOOOOO......",
+ "...OOSSSSOO.....",
+ ".OOOOSSSSOOOO...",
+ ".SSSSTTTTSSSSO..",
+ ".OOOTTTTTTTOOO..",
+ "....TTTTTTTT....",
+ "....TTTTTTTT....",
+ "...OSSSSSSSSO...",
+ "...OSSSSSSSO....",
+ "..OSS....SSO....",
+ "..OSO....OSO....",
+ "..OOO....OOO....",
+ "................",
+ "................",
+ "................",
+ "................"],
+],
+DIVE: [
+ ["................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "................",
+ "..OO............",
+ ".OSSOOOO........",
+ ".OSSSSOOOOO.....",
+ ".OSSSSTTTTTTO...",
+ "..OSSTTTTTTTTO..",
+ "..OSSSSSSSSSSSSO",
+ "..OSSSSSSSSSSO..",
+ "..OOOOOOOOOOOO..",
+ "................",
+ "................"],
+ ["..O.............",
+ ".OSSO...........",
+ ".OSSO...........",
+ ".OSSSO..........",
+ "..OSSSO.........",
+ "..OSSSSO........",
+ "...OSSSSO.......",
+ "...OSSSSO.......",
+ "....OSSSOO......",
+ "....OSSTTTTO....",
+ ".....SSTTTTTO...",
+ "......SSTTTTTOO.",
+ ".......SSSTTTSSO",
+ "......OSSSSSSSSO",
+ "......OOOOOOOO..",
+ "................"],
+ ["......OOOO......",
+ ".....OSSSSO.....",
+ ".....OSSSSO.....",
+ "....OSSSSSSO....",
+ "....OSSSSSO.....",
+ "....OSSTTSO.....",
+ "....OSTTTSO.....",
+ "....OSTTTSO.....",
+ "...OOSTTTSOO....",
+ "...OSTTTTTSO....",
+ "...OSTTTTTSO....",
+ "...OSSSSSSSO....",
+ "...OSSSSSSSO....",
+ "...OSSSSSSSO....",
+ "..OSSSSSSSSSO...",
+ "..OOOOOOOOOOO..."],
+],
+UW: [
+ ["................",
+ "..OO............",
+ ".OSSO...........",
+ ".OSSSO..........",
+ "..OSSSO.........",
+ ".....OOOOOOOOOOO",
+ "....OSSSTTTTTTSO",
+ "...OSSTTTTTTTTSO",
+ "...OSSTTTTTTTTSO",
+ "..OSSSSSSSSSSSSO",
+ "..OOOOOOOOOOOOOO",
+ "........OOOOO...",
+ ".......OSSSSSO..",
+ "................",
+ "................",
+ "................"],
+ ["................",
+ "................",
+ "................",
+ "................",
+ ".....OOOOOOOOOOO",
+ "....OSSSTTTTTTSO",
+ "...OSSTTTTTTTTSO",
+ "...OSSTTTTTTTTSO",
+ "..OSSSSSSSSSSSSO",
+ "..OOOOOOOOOOOOOO",
+ "...OOOOO........",
+ "..OSSSSO........",
+ "..OSSSSO........",
+ ".OSSSO..........",
+ ".OSSO...........",
+ ".OOO............"],
+],
+UWB: [
+ ["................",
+ "................",
+ "..........OOOOO.",
+ ".........OSSSSSO",
+ "....OOOOOSSSSSOO",
+ "....SSTTTTTTTTSO",
+ "...OSSTTTTTTTTSO",
+ "...SSTTTTTTTTSO.",
+ "..OSSSSSSSSSSO..",
+ ".OSSSSSSOOOOO...",
+ ".OSSSSSO........",
+ "..OOOOO.........",
+ "................",
+ "................",
+ "................",
+ "................"],
+ ["................",
+ "................",
+ "..........OOOOO.",
+ ".........OSSSSSO",
+ "....OOOOOSSSSSOO",
+ "....SSTTTTTTTTSO",
+ "...OSSTTTTTTTTSO",
+ "...SSTTTTTTTTSO.",
+ "..OSSSSSSSSSSO..",
+ "..OSSSSOOOOO....",
+ ".OSSSO..........",
+ ".OSSSO..........",
+ "..OOO...........",
+ "................",
+ "................",
+ "................"],
+],
+UWV: [
+ ["......OOO.......",
+ ".....OSSSO......",
+ ".....OSSSO......",
+ "....OSSSSO......",
+ "....OSSSSO......",
+ "....OSSTSO......",
+ "...OSSTTSSO.....",
+ "...OSTTTTSO.....",
+ "...OSTTTTSO.....",
+ "...OSTTTTSSO....",
+ "...OSSSSSSSO....",
+ "...OSSSSSSSO....",
+ "....OSSSSSO.....",
+ "....OOOOOOO.....",
+ "................",
+ "................"],
+],
+EMERGE: [
+ ["....OOOOOO......",
+ "...OOSSSSOO.....",
+ "..OOSSSSSSOO....",
+ ".OSSSTTTTSSSO...",
+ ".OSOTTTTTTOSO...",
+ "..OSTTTTTTTSO...",
+ "..OOTTTTTTTOO...",
+ "....TTTTTTTT....",
+ "...OSSSSSSSSO...",
+ "...OSSSSSSO.....",
+ "...OSS..SSO.....",
+ "...OSO..OSO.....",
+ "...OOO..OOO.....",
+ "................",
+ "................",
+ "................"],
+],
+BREATH: [
+ ["....OOOOOO......",
+ "...OOSSSSOO.....",
+ "..OOSSSSSSOO....",
+ ".OSSSTTTTSSSO...",
+ ".OSSTTTTTTSSO...",
+ "..OTTTTTTTTO....",
+ "...TTTTTTTT.....",
+ "...TTTTTTTT.....",
+ "...OSSSSSSO.....",
+ "...OSSSSSO......",
+ "...OSS.SSO......",
+ "...OOO.OOO......",
+ "................",
+ "................",
+ "................",
+ "................"],
+ ["....OOOOOO......",
+ "...OOSSSSOO.....",
+ ".OOOOSSSSOOOO...",
+ "OSSSSTTTTTSSSSSO",
+ ".OOOTTTTTTTOOO..",
+ "....TTTTTTTT....",
+ "....TTTTTTTT....",
+ "...OSSSSSSSSO...",
+ "...OSSSSSSO.....",
+ "...OSS..SSO.....",
+ "...OSO..OSO.....",
+ "...OOO..OOO.....",
+ "................",
+ "................",
+ "................",
+ "................"],
+ ["....OOOOOO......",
+ "...OOSSSSOO.....",
+ "..OOSSSSSSOO....",
+ ".OSSSTTTTSSSO...",
+ ".OSOTTTTTTOSO...",
+ "..OOTTTTTTOO....",
+ "....TTTTTTTT....",
+ "...TTTTTTTT.....",
+ "...OSSSSSSO.....",
+ "...OSSSSO.......",
+ "...OOSSOO.......",
+ "....OOOO........",
+ "................",
+ "................",
+ "................",
+ "................"],
+],
+};
+/* 水花 8x4 两帧 */
+const SPLASH = [
+ ["..W..W..",
+ ".WW..WW.",
+ "W..WW..W",
+ "W......W"],
+ ["W......W",
+ "W..WW..W",
+ "........",
+ "........"],
+];
+/* 组合布局 (锚点=脚底中心, 全姿态统一: anchorX/anchorY=锚点在组合内偏移; 状态切换只改绘制原点, 逻辑锚点不动;
+   R6删除R5的UWV头颈位例外: UWV改24x40 anchorY=40, UW全姿态统一ay域[120,166]) */
+const LAY = {
+  SURF: { w:24, h:40, anchorX:12, anchorY:40, head:[0,0], body:[4,24] },
+  JUMP: [
+   { w:24, h:40, anchorX:12, anchorY:40, head:[0,0], body:[4,24] },
+   { w:38, h:24, anchorX:19, anchorY:24, head:[14,0], body:[0,6] },
+   { w:24, h:40, anchorX:12, anchorY:40, head:[0,0], body:[4,24] },
+  ],
+  BREATH: { w:24, h:40, anchorX:12, anchorY:40, head:[0,0], body:[4,24] },
+  DIVE: [
+   { w:38, h:24, anchorX:19, anchorY:24, head:[14,0], body:[0,6] },
+   { w:38, h:32, anchorX:19, anchorY:32, head:[14,8], body:[0,6] },
+   { w:24, h:40, anchorX:12, anchorY:40, head:[0,13], body:[4,0] },
+  ],
+  UW: { w:38, h:24, anchorX:19, anchorY:24, head:[14,0], body:[0,7] },
+  UWV: { w:24, h:40, anchorX:12, anchorY:40, head:[0,16], body:[4,5] },
+  EMERGE: { w:24, h:40, anchorX:12, anchorY:40, head:[0,0], body:[4,24] },
+};
+const HEAD_DY = { yy:0, dd:2 };
+/* 侧脸游泳头 (UW横卧/DIVE横卧转向/JUMP空中飞扑用; 泳帽·镜带在后, 脸在前) 与垂直下潜头 (DIVE垂直/UW纯↓悬浮用; 只见头顶) */
+/* 左向=翻转+人工修正(光源/镜高光), 非精确镜像; build_sprites.py已断言 */
+const HEAD_SIDE = {"yy": {"right": ["........................", "........................", ".....OOOOOOOOO..........", "...OOCCCCCCCCCOO........", "..OCCCCCCCCCCCCOO.......", "..OCCCcCCCCCCCCSO.......", ".OCCCCCCCCCCCCCSSO......", ".OCCCCCCCCCCCCCSSO......", ".OWWWWWWWWWWWWWddO......", ".OWWWWWWWWWWWWWddO......", ".OOOOOOOOOOOOOOOSO......", ".OSSSSSSSSSSSSSSO.......", ".OSsSSSSSSSSSSSO........", ".OSSSSSSSSSSSSSO........", ".OSSSSSSSSSSdSSO........", ".OsSSSSSSSSSSSSO........", ".OSSSSSSSSSSSO..........", "..SSSSSSSSSSsO..........", "..sSSSSSSSSsO...........", "...sSSSSSsO.............", "....sSSSsO..............", ".....sssO...............", "........................", "........................"], "left": ["........................", "........................", "..........OOOOOOOOO.....", "........OOCCCCCCCCCOO...", ".......OOCCCCCCCCCCCCO..", ".......OSCCCCCCCCcCcCO..", "......OSSCCCCCCCCCCCCCO.", "......OSSCCCCCCCCCCCCCO.", "......OddWWWWWWWWWWWWWO.", "......OddWWWWWWWWWWWWWO.", "......OSOOOOOOOOOOOOOOO.", ".......OSSSSSSSSSSSSsSO.", "........OSSSSSSSSSSSsSO.", "........OSSSSSSSSSSSSSO.", "........OSSdSSSSSSSSSSO.", "........OSSSSSSSSSSSSsO.", "..........OSSSSSSSSSSSO.", "..........OsSSSSSSSSSS..", "...........OsSSSSSSSss..", ".............OsSSSSSs...", "..............OsSSSs....", "...............Osss.....", "........................", "........................"]}, "dd": {"right": ["........................", "........................", ".....OOOOOOOOOO.........", "...OOHHHHHHHHHOOO.......", "..OHHHHHHHHHHHHHO.......", "..OHHhHHHHHHHHHHSO......", ".OHHHHHHHHHHHHHHSSO.....", ".OHHHHHHHHHHHHHHSSO.....", ".OhhhhhhhhhhhhhhddO.....", ".OHHHHHHHHHHHHHWSdO.....", ".OOOOOOOOOOOOOOOSO......", ".OSSSSSSSSSSSSSSO.......", ".OSSSSSSSSSSSSSO........", ".OSsSSSSSSSSSSSO........", ".OSSSSSSSSSSSSSO........", ".OSSSSSSSddSSSSO........", ".OsSSSSSSSSSSSO.........", "..SSSSSSSSSSsO..........", "..sSSSSSSSSsO...........", "...sSSSSSsO.............", "....ssssO...............", ".....sssO...............", "........................", "........................"], "left": ["........................", "........................", ".........OOOOOOOOOO.....", ".......OOOHHHHHHHHHOO...", ".......OHHHHHHHHHHHHHO..", "......OSHHHHHHHHHHhHhO..", ".....OSSHHHHHHHHHHHHHHO.", ".....OSSHHHHHHHHHHHHHHO.", ".....OddhhhhhhhhhhhhhhO.", ".....OdSWHHHHHHHHHHHWHO.", "......OSOOOOOOOOOOOOOOO.", ".......OSSSSSSSSSSSSSSO.", "........OSSSSSSSSSSSsSO.", "........OSSSSSSSSSSSsSO.", "........OSSSSSSSSSSSSSO.", "........OSSSSddSSSSSSSO.", ".........OSSSSSSSSSSSsO.", "..........OsSSSSSSSSSS..", "...........OsSSSSSSSSs..", ".............OsSSSSSs...", "...............Ossss....", "...............Osss.....", "........................", "........................"]}};
+const HEAD_DOWN = {"yy": {"right": ["........................", "........................", "........................", "......OOOOOOO...........", "....OOCCCCCCCOO.........", "...OCCCCCCCCCCCO........", "..OCCCcCCCcCCCCO........", "..OCCCCCCCCCCCCO........", "..OWWWWWWWWWWWWO........", "..OCCCCCCCCCCCCO........", "..OCCCCCCCCCCCCO........", "..OCCCCCCCCCCCCO........", "..OCCOOOOOOOOOCO........", "..OSSOOOOOOOOOSO........", "..OSSSSSSSSSSSSO........", "..OSSSSSSSSSSSO.........", "...OSSSSSSSSSO..........", "....OssSSSSSsO..........", ".....OssssssO...........", "......OssssO............", ".......OssO.............", "........OsO.............", "........................", "........................"], "left": ["........................", "........................", "........................", "...........OOOOOOO......", ".........OOCCCCCCCOO....", "........OCCCCCCCCCCCO...", "........OCCCCcCCCcCCCO..", "........OCCCCCCCCCCCCO..", "........OWWWWWWWWWWWWO..", "........OCCCCCCCCCCCCO..", "........OCCCCCCCCCCCCO..", "........OCCCCCCCCCCCCO..", "........OCOOOOOOOOOCCO..", "........OSOOOOOOOOOSSO..", "........OSSSSSSSSSSSSO..", ".........OSSSSSSSSSSSO..", "..........OSSSSSSSSSO...", "..........OssSSSSssO....", "...........OssssssO.....", "............OssssO......", ".............OssO.......", ".............OsO........", "........................", "........................"]}, "dd": {"right": ["........................", "........................", "........................", "......OOOOOOO...........", "....OOHHHHHHHOOO........", "...OHHHHHHHHHHHHO.......", "..OHHHHhHHHhHHHHO.......", "..OHHHHHHHHHHHHHO.......", "..OhHHHHHHHHHHHhO.......", "..OHHHHHHHHHHHHHO.......", "..OHHHHHHHHHHHHHO.......", "..OHHHHHHHHHHHHHO.......", "..OHHOOOOOOOOOHHO.......", "..OSSOOOOOOOOOSSO.......", "..OSSSSSSSSSSSSSO.......", "..OSSSSSSSSSSSSO........", "...OSSSSSSSSSO..........", "....OssSSSSSsO..........", ".....OssssssO...........", "......OssssO............", ".......OssO.............", "........OsO.............", "........................", "........................"], "left": ["........................", "........................", "........................", "...........OOOOOOO......", "........OOOHHHHHHHOO....", ".......OHHHHHHHHHHHHO...", ".......OHHHHhHHHhHHHHO..", ".......OHHHHHHHHHHHHHO..", ".......OhhHHHHHHHHHHhO..", ".......OHHHHHHHHHHHHHO..", ".......OHHHHHHHHHHHHHO..", ".......OHHHHHHHHHHHHHO..", ".......OHHOOOOOOOOOHHO..", ".......OSSOOOOOOOOOSSO..", ".......OSSSSSSSSSSSSSO..", "........OSSSSSSSSSSSSO..", "..........OSSSSSSSSSO...", "..........OsSSSSSssO....", "...........OssssssO.....", "............OssssO......", ".............OssO.......", ".............OsO........", "........................", "........................"]}};
+
+/* 水下青蓝调色映射 (头+身体统一) */
+const UW_MAP = { O:'#004058', W:'#FCFCFC', S:'#A4E4FC', s:'#3CBCFC', d:'#004058',
+                 C:'#3CBCFC', c:'#004058', H:'#004058', h:'#3CBCFC', T:'#3CBCFC', L:'#A4E4FC' };
+function colorsFor(c, uw){
+  if (uw) return UW_MAP;
+  const p = AVATAR_PAL[c.avatar];
+  return { O:p.O, W:p.W, S:p.S, s:p.s, d:p.d, C:p.C, c:p.c, H:p.H, h:p.h, T:c.team, L:p.S };
+}
+function drawPart(map, x, y, colors, flip){
+  const w = map[0].length;
+  for (let r = 0; r < map.length; r++){
+    const row = map[r];
+    for (let q = 0; q < w; q++){
+      const key = row[q];
+      if (key === '.') continue;
+      ctx.fillStyle = colors[key];
+      ctx.fillRect(x + (flip ? w - 1 - q : q), y + r, 1, 1);
+    }
+  }
+}
+
+/* ---------- 角色状态机 (锚点=脚底中心, 全整数定点: 坐标/速度/斜向系数均为fp整数, 1px=256fp) ---------- */
+const ST = { SURF:'SURF', JUMP:'JUMP', DIVE:'DIVE', UW:'UW', EMERGE:'EMERGE', BREATH:'BREATH' };
+const FOOT_SURF_Fp = FP(ORIGINAL_TUNING.surfFootY);            // 水面脚底锚点 y=108
+const ANCHOR_X_MIN_Fp = FP(20), ANCHOR_X_MAX_Fp = FP(236);     // 统一横向钳制带(与状态无关→切换不瞬移)
+function mkChar(xFp, dir, avatar, team){
+  return { axFp: xFp, ayFp: FOOT_SURF_Fp, dir, prefDir: 0, avatar, team,   // R3: 预选方向初始0(无证据默认朝向水平跳)
+           state: ST.SURF, t: 0, boostFp: 0, airFp: ORIGINAL_TUNING.airMaxFp,
+           swimT: 0, jumpDir: 0, jumpX0Fp: xFp, emergeFromFp: 0, uwPose: 'H' };   // R6: UW方向三态 H横卧/U头朝上/D头朝下
+}
+const yy  = mkChar(FP(94), 1, 'yy', '#3C9CF0');    // 阳阳(玩家)
+const dad = mkChar(FP(180), -1, 'dd', '#F83800');  // 爸爸(静止脚本)
+const parts = [];                                  // 粒子 {type, xFp, yFp, t, inAir} 全整数
+
+function spawnSplash(xFp, yFp){ parts.push({ type:'splash', xFp: xFp - FP(4), yFp: yFp - FP(2), t: 0, inAir: false }); }
+function spawnBubble(xFp, yFp, inAir){ parts.push({ type:'bubble', xFp, yFp, t: 0, inAir }); }
+
+function diveIdx(t){                               // DIVE三过程帧: t≤2横卧准备 / t≤4转向 / 其余垂直下沉 (实测f15615..f15620)
+  const T = ORIGINAL_TUNING;
+  return t <= T.diveFlatTicks ? 0 : t <= T.diveFlatTicks + T.diveTurnTicks ? 1 : 2;
+}
+function breathBodyIdx(t){                         // BREATH四段身体: 准备−1(水面帧)/上升0挺起/顶峰1展臂/回落2
+  const T = ORIGINAL_TUNING;
+  return t <= T.breathPrepTicks ? -1
+       : t <= T.breathPrepTicks + T.breathRiseTicks ? 0
+       : t <= T.breathPrepTicks + T.breathRiseTicks + T.breathHoldTicks ? 1 : 2;
+}
+function breathHeadIdx(t){                         // 头像: 准备−1(normal)/上升0/顶峰1张嘴/回落0, 与身体同步
+  const T = ORIGINAL_TUNING;
+  return t <= T.breathPrepTicks ? -1
+       : t <= T.breathPrepTicks + T.breathRiseTicks ? 0
+       : t <= T.breathPrepTicks + T.breathRiseTicks + T.breathHoldTicks ? 1 : 0;
+}
+function jumpIdx(t){                               // JUMP三帧: 起跳蹲JC / 滞空横向飞扑JA / 下落JF
+  const T = ORIGINAL_TUNING;
+  return t < T.jumpFrame1Tick ? 0 : t < T.jumpFrame2Tick ? 1 : 2;
+}
+function curLay(c){
+  switch (c.state){
+    case ST.JUMP:   return LAY.JUMP[jumpIdx(c.t)];
+    case ST.DIVE:   return LAY.DIVE[diveIdx(c.t)];
+    case ST.UW:     return c.uwPose === 'H' ? LAY.UW : c.uwPose === 'U' ? LAY.EMERGE : LAY.UWV;  // R6三态
+    case ST.EMERGE: return LAY.EMERGE;
+    case ST.BREATH: return LAY.BREATH;
+    default:        return LAY.SURF;
+  }
+}
+function curBody(c){
+  const T = ORIGINAL_TUNING;
+  switch (c.state){
+    case ST.JUMP:   return [BODY.JC[0], BODY.JA[0], BODY.JF[0]][jumpIdx(c.t)];  // 蹲/横向飞扑/下落
+    case ST.DIVE:   return BODY.DIVE[diveIdx(c.t)];  // 横卧准备→转向→垂直下沉(与UW/EMERGE不同姿态)
+    case ST.UW: {                                    // R6三态: H横卧(加速UWB流线帧) / U头朝上 / D头朝下蜷身
+      if (c.uwPose === 'U') return BODY.EMERGE[0];
+      if (c.uwPose === 'D') return BODY.UWV[0];
+      const cyc = c.boostFp > 0 ? T.boostCycleTicks : T.swimCycleTicks;
+      return (c.boostFp > 0 ? BODY.UWB : BODY.UW)[Math.floor(c.swimT / cyc) % 2];
+    }
+    case ST.EMERGE: return BODY.EMERGE[0];           // 直立仰身
+    case ST.BREATH: {                                // 准备=水面帧 / 挺起 / 双臂展开大口 / 回落
+      const bi = breathBodyIdx(c.t);
+      return bi < 0 ? BODY.SURF[0] : BODY.BREATH[bi];
+    }
+    default: return BODY.SURF[Math.floor(c.t / T.floatBobTicks) % 2];
+  }
+}
+function curHead(c){
+  const d = c.dir > 0 ? 'right' : 'left';
+  if (c.state === ST.BREATH){
+    const hi = breathHeadIdx(c.t);                   // 准备段用normal, 上升/顶峰/回落用张嘴两帧
+    return hi < 0 ? AVATAR[c.avatar][d] : AVATAR_BREATH[c.avatar][d][hi];
+  }
+  if (c.state === ST.DIVE)                           // 头身朝向一致: 垂直帧=头顶朝下, 横卧/转向=侧脸
+    return (diveIdx(c.t) === 2 ? HEAD_DOWN : HEAD_SIDE)[c.avatar][d];
+  if (c.state === ST.UW){                            // H横卧=侧脸头; D头朝下=垂直头; U头朝上=正脸头
+    if (c.uwPose === 'U') return AVATAR[c.avatar][d];
+    return (c.uwPose === 'D' ? HEAD_DOWN : HEAD_SIDE)[c.avatar][d];
+  }
+  if (c.state === ST.JUMP && jumpIdx(c.t) === 1)     // 空中飞扑帧=侧脸头(与水平身体同向)
+    return HEAD_SIDE[c.avatar][d];
+  return AVATAR[c.avatar][d];
+}
+function headDyFor(c){                               // 仅正脸头需要dd下移2px接下巴; 侧脸/垂直头组合内已对齐
+  if (c.state === ST.DIVE) return 0;
+  if (c.state === ST.UW && c.uwPose !== 'U') return 0;
+  if (c.state === ST.JUMP && jumpIdx(c.t) === 1) return 0;
+  return HEAD_DY[c.avatar];
+}
+
+function tickChar(c, inp){
+  const T = ORIGINAL_TUNING;
+  c.t++;
+  switch (c.state){
+    case ST.SURF: {
+      c.ayFp = FOOT_SURF_Fp;
+      if (inp.L){ c.dir = -1; c.prefDir = -1; c.axFp -= T.surfDriftFp; }  // 保存最后方向(跳跃预选)
+      if (inp.R){ c.dir = 1;  c.prefDir = 1;  c.axFp += T.surfDriftFp; }
+      if (inp.pA){                                             // 跳跃: 方向键>预选方向; 都无→0垂直跳
+        c.state = ST.JUMP; c.t = 0;
+        c.jumpDir = inp.L ? -1 : inp.R ? 1 : c.prefDir;
+        c.jumpX0Fp = c.axFp;
+        spawnSplash(c.axFp, T.splashYFp);
+        break;
+      }
+      if (inp.pB){ c.state = ST.BREATH; c.t = 0; break; }      // B超级换气
+      if (inp.D){ c.state = ST.DIVE; c.t = 0; spawnSplash(c.axFp, T.splashYFp); break; }
+      c.airFp = Math.min(T.airMaxFp, c.airFp + T.airRecoverFp); // 水面自然恢复Oxy
+      break;
+    }
+    case ST.BREATH: {                                // 待标定占位44tick四段(f16044..f16066不完整, 无第二样本): 准备4/上升12/顶峰18/回落10
+      const t = c.t, p = T.breathPrepTicks, r = T.breathRiseTicks, h = T.breathHoldTicks;
+      if (inp.L){ c.dir = -1; c.axFp -= T.breathDriftFp; }   // 换气中方向输入(速度待标定占位=0, 参数已接入消费)
+      if (inp.R){ c.dir = 1;  c.axFp += T.breathDriftFp; }
+      if (t <= p)                                    // 低姿准备 t1..4: 脚底108
+        c.ayFp = FOOT_SURF_Fp;
+      else if (t <= p + r)                           // 上升 t5..16: 108→96 (每tick约−1px, 严格单调)
+        c.ayFp = FOOT_SURF_Fp - ((T.breathRiseFp * (t - p) / r) | 0);
+      else if (t <= p + r + h)                       // 顶峰保持 t17..34: 96 (双臂展开+张嘴)
+        c.ayFp = FOOT_SURF_Fp - T.breathRiseFp;
+      else                                           // 回落 t35..44: 96→108 (非降)
+        c.ayFp = FOOT_SURF_Fp - T.breathRiseFp +
+                 ((T.breathRiseFp * (t - p - r - h) / T.breathFallTicks) | 0);
+      if (c.t % T.breathBubbleEvery === 0)
+        spawnBubble(c.axFp + c.dir * T.breathBubbleFwdFp, T.breathBubbleYFp, true);
+      /* 换气过程不回氧; 完成事件一次设满(复审指令硬性规格); 水平=方向键×breathDriftFp(待标定占位0) */
+      if (c.t >= T.breathLockTicks){
+        c.state = ST.SURF; c.t = 0; c.ayFp = FOOT_SURF_Fp; c.airFp = T.airMaxFp;
+      }
+      break;
+    }
+    case ST.JUMP: {                                    // 整数抛物线, 方向预选, 明确±位移(垂直跳dir=0)
+      const n = c.t, N = T.jumpTicks;
+      c.ayFp = FOOT_SURF_Fp - ((T.jumpRiseFp * 4 * n * (N - n) / (N * N)) | 0);
+      c.axFp += c.jumpDir * T.jumpMoveXFp;
+      if (c.t >= N){
+        c.state = ST.SURF; c.t = 0; c.ayFp = FOOT_SURF_Fp;
+        spawnSplash(c.axFp, T.splashYFp);
+      }
+      break;
+    }
+    case ST.DIVE: {                                    // 必须按住↓推进; 松开按diveBackSpeed弹回
+      if (!inp.D){
+        c.t -= T.diveBackSpeed;
+        if (c.t <= 0){ c.state = ST.SURF; c.t = 0; c.ayFp = FOOT_SURF_Fp;
+          spawnSplash(c.axFp, T.splashYFp); break; }
+      }
+      c.ayFp = FOOT_SURF_Fp + ((T.diveSinkFp * c.t / T.diveTicks) | 0);   // 108→120, 与UW入点连续
+      if (c.t >= T.diveTicks){ c.state = ST.UW; c.t = 0; c.ayFp = T.uwTopFp; c.boostFp = 0; c.uwPose = 'D'; }  // 垂直下潜→头朝下蜷身(布局同族, 逐帧连续)
+      break;
+    }
+    case ST.UW: {
+      const dx = (inp.R ? 1 : 0) - (inp.L ? 1 : 0);
+      const dy = (inp.D ? 1 : 0) - (inp.U ? 1 : 0);
+      if (dx) c.dir = dx;
+      c.uwPose = dx !== 0 ? 'H' : dy < 0 ? 'U' : 'D';   // R6三态: 有横向→横卧; 纯↑→头朝上; 纯↓/无输入→头朝下蜷身(斜向缺原版证据, 归横卧)
+      const moving = (dx !== 0 || dy !== 0);
+      if (moving && inp.pA)                                // 仅"移动中+A新边沿"才累积, 静止不储能
+        c.boostFp = Math.min(T.boostMaxFp, c.boostFp + T.boostPerPressFp);
+      c.boostFp = Math.max(0, c.boostFp - T.boostDecayFp);
+      let sp = T.swimSpeedFp + c.boostFp;
+      if (dx && dy) sp = (sp * T.diagFp) >> 8;                 // 整数斜向系数 181/256≈0.707
+      c.axFp += dx * sp; c.ayFp += dy * sp;
+      if (moving){
+        c.swimT++;
+        const every = c.boostFp > 0 ? T.boostBubbleEvery : T.uwBubbleEvery;
+        if (c.swimT % every === 0)
+          spawnBubble(c.axFp + c.dir * T.uwBubbleFwdFp, c.ayFp - T.uwBubbleUpFp, false);
+      }
+      if (inp.U && c.ayFp <= T.uwTopFp){                 // 到顶上浮; 离开UW立即清零boost
+        c.state = ST.EMERGE; c.t = 0; c.emergeFromFp = c.ayFp; c.boostFp = 0; break;
+      }
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);           // 水下耗氧(气绝演出属阶段4)
+      break;
+    }
+    case ST.EMERGE: {
+      const from = c.emergeFromFp, to = FOOT_SURF_Fp;
+      c.ayFp = from - (((from - to) * c.t / T.emergeTicks) | 0);
+      if (c.t >= T.emergeTicks || c.ayFp <= to){
+        c.state = ST.SURF; c.t = 0; c.ayFp = to;
+        spawnSplash(c.axFp, T.splashYFp);
+      }
+      break;
+    }
+  }
+  clampChar(c);
+}
+
+/* 锚点钳制: 横向统一[20,236]与状态无关; UW纵向全姿态统一[120,166](R6删UWV例外域, 姿态切换坐标不变) */
+function clampChar(c){
+  c.axFp = Math.max(ANCHOR_X_MIN_Fp, Math.min(ANCHOR_X_MAX_Fp, c.axFp));
+  if (c.state === ST.UW){
+    const T = ORIGINAL_TUNING;
+    c.ayFp = Math.max(T.uwTopFp, Math.min(T.uwBotFp, c.ayFp));
+  }
+}
+
+function tickParts(){
+  const T = ORIGINAL_TUNING;
+  for (let i = parts.length - 1; i >= 0; i--){
+    const p = parts[i]; p.t++;
+    if (p.type === 'bubble'){
+      if (p.inAir){                                            // 换气气泡: 纯寿命, 空气中缓升
+        p.yFp -= T.bubbleRiseAirFp;
+        if (p.t > T.bubbleLifeAir) parts.splice(i, 1);
+      } else {                                                 // 水下气泡: 破灭线 + 寿命
+        p.yFp -= T.bubbleRiseUwFp;
+        if ((p.yFp >> 8) < T.bubblePopY || p.t > T.bubbleLifeUw) parts.splice(i, 1);
+      }
+    } else if (p.t > T.splashTicks) parts.splice(i, 1);
+  }
+}
+
+const IDLE_INPUT = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+let tickCount = 0;
+function tick(){
+  tickCount++;
+  if (scriptMode) applyScript(tickCount);
+  tickChar(yy, Input);
+  tickChar(dad, IDLE_INPUT);
+  tickParts();
+  Input.pA = 0; Input.pB = 0;                                  // 边沿输入每tick消费
+}
+
+/* ---------- 游泳者渲染 (锚点定位; 左向=阶段2 left头像数据+身体逐像素翻转; BREATH两帧头像; DIVE/UW侧脸·垂直头) ---------- */
+function drawSwimmers(){
+  const T = ORIGINAL_TUNING;
+  for (const c of [yy, dad]){
+    const lay = curLay(c), body = curBody(c), head = curHead(c);
+    const uw = c.state === ST.DIVE || c.state === ST.UW || c.state === ST.EMERGE;
+    const colors = colorsFor(c, uw);
+    const bob = (c.state === ST.SURF || c.state === ST.BREATH) &&
+                Math.floor(c.t / T.floatBobTicks) % 2 ? T.floatBobPx : 0;
+    const ox = (c.axFp >> 8) - lay.anchorX;                  // 绘制原点=锚点-锚点偏移
+    const oy = (c.ayFp >> 8) - lay.anchorY + bob;
+    const bx = c.dir > 0 ? ox + lay.body[0] : ox + lay.w - lay.body[0] - 16;
+    const hx = c.dir > 0 ? ox + lay.head[0] : ox + lay.w - lay.head[0] - 24;
+    drawPart(body, bx, oy + lay.body[1], colors, c.dir < 0);
+    drawPart(head, hx, oy + lay.head[1] + headDyFor(c), colors, false);
+  }
+  for (const p of parts){
+    const px = p.xFp >> 8, py = p.yFp >> 8;
+    if (p.type === 'bubble'){
+      const small = p.t > T.bubbleFrameT;                      // 分帧点: 2x2 → 1x1
+      ctx.fillStyle = PAL.white;
+      ctx.fillRect(px, py, small ? 1 : 2, small ? 1 : 2);
+      if (!small){ ctx.fillStyle = p.inAir ? PAL.uwOut : PAL.waterLo; ctx.fillRect(px, py, 1, 1); }
+    } else {
+      drawPart(SPLASH[p.t < (T.splashTicks >> 1) ? 0 : 1], px, py, { W: PAL.wave }, false);
+    }
+  }
+}
+
+/* ---------- HUD/* ---------- HUD (y 168..223, 黑底白框, 8x8 字体节奏) ---------- */
 function drawHUD(){
   ctx.fillStyle = PAL.black; ctx.fillRect(0, HUD_Y, LW, LH - HUD_Y);
   /* 双线白框 x10..245 / y169..218 */
@@ -377,14 +1076,14 @@ function drawHUD(){
   ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 191, 60, 7);
   drawText('HP', 150, 191, PAL.white);
   ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 191, 61, 7);
-  /* Oxy 行 (满槽) */
+  /* Oxy 行 (跟随角色 air) */
   drawText('Oxy', 17, 208, PAL.white);
-  ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 208, 63, 7);
+  ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 208, (yy.airFp * 63 / ORIGINAL_TUNING.airMaxFp) | 0, 7);
   drawText('Oxy', 141, 208, PAL.white);
-  ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 208, 63, 7);
+  ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 208, (dad.airFp * 63 / ORIGINAL_TUNING.airMaxFp) | 0, 7);
 }
 
-/* ---------- 渲染 (阶段1: 静态画面只渲染一次, 无 rAF 循环) ---------- */
+/* ---------- 渲染 + 60Hz 固定步进循环 (累加器; 逻辑与渲染分离) ---------- */
 function render(){
   ctx.fillStyle = PAL.black; ctx.fillRect(0, 0, LW, LH);
   drawBackground();
@@ -394,8 +1093,322 @@ function render(){
   dctx.drawImage(sc, 0, 0, LW, LH, 0, 0, LW, LH);
 }
 
-window.addEventListener('resize', fitCanvas);   // 窗口变化时重取整数倍并重绘一次
-fitCanvas();
+scriptMode = new URLSearchParams(location.search).get('script');
+const STEP = 1000 / 60;
+let acc = 0, lastTs = 0;
+function frame(ts){
+  if (!lastTs) lastTs = ts;
+  acc += Math.min(ts - lastTs, 200);      // 防后台标签大跳步
+  lastTs = ts;
+  while (acc >= STEP){ tick(); acc -= STEP; }
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* 精灵数据自检: 每个map每行等宽 */
+function spriteWidthErrors(){
+  const bad = [];
+  const check = (name, m) => {
+    const w = m[0].length;
+    m.forEach((r, i) => { if (r.length !== w) bad.push(name + ' row' + i + ' ' + r.length + '!=' + w); });
+  };
+  for (const k in BODY) BODY[k].forEach((m, i) => check('BODY.' + k + '[' + i + ']', m));
+  for (const who in AVATAR) for (const d in AVATAR[who]) check('AVATAR.' + who + '.' + d, AVATAR[who][d]);
+  for (const who in AVATAR_BREATH) for (const d in AVATAR_BREATH[who])
+    AVATAR_BREATH[who][d].forEach((m, i) => check('AVATAR_BREATH.' + who + '.' + d + '[' + i + ']', m));
+  for (const who in HEAD_SIDE) for (const d in HEAD_SIDE[who]) check('HEAD_SIDE.' + who + '.' + d, HEAD_SIDE[who][d]);
+  for (const who in HEAD_DOWN) for (const d in HEAD_DOWN[who]) check('HEAD_DOWN.' + who + '.' + d, HEAD_DOWN[who][d]);
+  SPLASH.forEach((m, i) => check('SPLASH[' + i + ']', m));
+  return bad;
+}
+
+window.addEventListener('resize', fitCanvas);   // 窗口变化时重取整数倍
+const qs = new URLSearchParams(location.search);
+const preRun = parseInt(qs.get('to') || '0', 10);
+
+if (qs.has('selftest')){
+  /* R6自检: 无输入300tick / 贴边全状态循环(脚底连续+实际像素不裁图) / 池底姿态切换坐标不变+纯↑U纯↓D /
+     demo轨迹全断言(实际非透明像素世界bbox: DIVE→UW与UW→EMERGE逐帧连续≤10px) /
+     DIVE三过程帧 / UW三态(H/U/D) / BREATH四段单调+完成air=airMax / 独立Oxy(air=0→B→44tick→满) / 10万tick确定性压力 */
+  const T = ORIGINAL_TUNING;
+  const errs = spriteWidthErrors();
+  /* 实际非透明像素世界bbox(与drawSwimmers同一定位: 身体左向逐像素翻转, 头像用left烘焙数据, 不再只看LAY逻辑框) */
+  function worldBBox(c){
+    const lay = curLay(c), body = curBody(c), head = curHead(c);
+    const ox = (c.axFp >> 8) - lay.anchorX, oy = (c.ayFp >> 8) - lay.anchorY;
+    const mir = c.dir < 0;
+    const bx = mir ? ox + lay.w - lay.body[0] - 16 : ox + lay.body[0];
+    const hx = mir ? ox + lay.w - lay.head[0] - 24 : ox + lay.head[0];
+    const hy = oy + lay.head[1] + headDyFor(c), by = oy + lay.body[1];
+    let x0 = 999, y0 = 999, x1 = -1, y1 = -1;
+    for (let r = 0; r < 24; r++) for (let q = 0; q < 24; q++)
+      if (head[r][q] !== '.'){
+        const x = hx + q, y = hy + r;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    for (let r = 0; r < 16; r++) for (let q = 0; q < 16; q++)
+      if (body[r][q] !== '.'){
+        const x = bx + (mir ? 15 - q : q), y = by + r;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    return [x0, y0, x1, y1];
+  }
+  const snapOf = () => [yy.axFp, yy.ayFp, yy.state, yy.airFp, dad.axFp, dad.ayFp, dad.state, dad.airFp].join(',');
+  /* A. 无输入300tick: 锚点/状态/Oxy完全不变, 无粒子 */
+  const s0 = snapOf();
+  for (let i = 0; i < 300; i++) tick();
+  if (snapOf() !== s0) errs.push('idle300 drift: ' + s0 + ' -> ' + snapOf());
+  if (parts.length) errs.push('idle300 parts=' + parts.length);
+  /* B. 贴边回归: ax=20/236, 无横向输入驱动全状态循环; ax零漂移+脚底连续+全整数+不裁图 */
+  for (const x0 of [20, 236]){
+    const c = mkChar(FP(x0), 1, 'yy', '#3C9CF0');
+    const inp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+    let clip = null; const seen = [];
+    let prevAy = c.ayFp, prevSt = c.state;
+    for (let i = 0; i < 220; i++){
+      if (i === 0) inp.D = 1;                                    // 按住下潜→UW
+      if (i === 30) inp.D = 0;
+      if (i === 40) inp.U = 1;                                   // 上浮→EMERGE→SURF
+      if (i === 70) inp.U = 0;
+      if (i === 90){ inp.pA = 1; inp.A = 1; }                    // 垂直跳(prefDir=0)
+      if (i === 91){ inp.pA = 0; inp.A = 0; }
+      if (i === 160){ inp.pB = 1; inp.B = 1; }                   // B换气
+      if (i === 161){ inp.pB = 0; inp.B = 0; }
+      tickChar(c, inp);
+      seen.push(c.state);
+      if (!Number.isInteger(c.axFp) || !Number.isInteger(c.ayFp)) errs.push(`edge${x0} 非整数@tick${i}`);
+      if (c.axFp !== FP(x0)) errs.push(`edge${x0} 横向瞬移@tick${i}: ${c.axFp / 256}`);
+      if (c.state !== prevSt && Math.abs(c.ayFp - prevAy) > FP(3))   // 脚底连续(JUMP末帧抛物线残差2.19px→阈值3)
+        errs.push(`edge${x0} 脚底跳变 ${prevSt}→${c.state}@tick${i}: ${prevAy / 256}→${c.ayFp / 256}`);
+      const bb = worldBBox(c);                                // 实际非透明像素bbox裁图检查(非LAY逻辑框)
+      if (bb[0] < 0 || bb[2] >= 256 || bb[1] < 0 || bb[3] >= 168) clip = c.state + '@' + i + ' [' + bb + ']';
+      prevAy = c.ayFp; prevSt = c.state;
+    }
+    if (clip) errs.push(`edge${x0} 裁图 ` + clip);
+    for (const st of ['DIVE','UW','EMERGE','SURF','JUMP','BREATH']) if (!seen.includes(st)) errs.push(`edge${x0} 缺状态 ` + st);
+  }
+  parts.length = 0;
+  /* B2. 独立Oxy: air=0 → pB → 完整breathLockTicks → SURF且air=airMax; ay四段单调; 结束脚底108 */
+  {
+    const c = mkChar(FP(120), 1, 'yy', '#3C9CF0');
+    c.airFp = 0;
+    const inp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:1 };
+    tickChar(c, inp);                                            // SURF→BREATH (t=0)
+    inp.pB = 0; inp.B = 0;
+    if (c.state !== ST.BREATH) errs.push('独立Oxy: pB未进BREATH');
+    const aySeq = [c.ayFp]; let airMidBad = false;
+    for (let i = 0; i < T.breathLockTicks; i++){
+      tickChar(c, inp); aySeq.push(c.ayFp);
+      if (i < T.breathLockTicks - 1 && c.airFp !== 0) airMidBad = true;   // 完成前不回氧
+    }
+    if (airMidBad) errs.push('独立Oxy: BREATH过程中air提前恢复');
+    if (c.state !== ST.SURF) errs.push('独立Oxy: 44tick后未回SURF 实际' + c.state);
+    if (c.airFp !== T.airMaxFp) errs.push('独立Oxy: 结束air=' + (c.airFp / 256) + ' 应满' + (T.airMaxFp / 256));
+    if (aySeq[T.breathLockTicks] !== FOOT_SURF_Fp) errs.push('独立Oxy: 结束脚底=' + (aySeq[T.breathLockTicks] / 256) + ' 应108');
+    for (let k = 0; k <= T.breathPrepTicks; k++)
+      if (aySeq[k] !== FOOT_SURF_Fp) errs.push(`独立Oxy: 准备段t${k} ay=${aySeq[k] / 256} 应108`);
+    for (let k = T.breathPrepTicks + 1; k <= T.breathPrepTicks + T.breathRiseTicks; k++)
+      if (!(aySeq[k] < aySeq[k - 1])) errs.push(`独立Oxy: 上升段t${k} 未严格单调升起`);
+    for (let k = T.breathPrepTicks + T.breathRiseTicks + 1; k <= T.breathPrepTicks + T.breathRiseTicks + T.breathHoldTicks; k++)
+      if (aySeq[k] !== FOOT_SURF_Fp - T.breathRiseFp) errs.push(`独立Oxy: 顶峰段t${k} ay=${aySeq[k] / 256} 应96`);
+    for (let k = T.breathPrepTicks + T.breathRiseTicks + T.breathHoldTicks + 1; k <= T.breathLockTicks; k++)
+      if (aySeq[k] < aySeq[k - 1]) errs.push(`独立Oxy: 回落段t${k} 非单调回落`);
+  }
+  parts.length = 0;
+  /* B3. 池底姿态切换: 横卧ay=166松方向→D, ax/ay完全不变(R6回归: 统一域后无钳制跳变); 纯↓=D/纯↑=U/横游=H */
+  {
+    const c = mkChar(FP(120), 1, 'yy', '#3C9CF0');
+    c.state = ST.UW; c.t = 0; c.ayFp = T.uwBotFp;
+    const inp = { L:0,R:1,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+    tickChar(c, inp);                                             // 横卧H(右移)
+    if (c.uwPose !== 'H') errs.push('池底横游姿态=' + c.uwPose + ' (应H)');
+    inp.R = 0;
+    const axH = c.axFp, ayH = c.ayFp;
+    tickChar(c, inp);                                             // 无输入→D
+    if (c.uwPose !== 'D') errs.push('池底松方向姿态=' + c.uwPose + ' (应D)');
+    if (c.axFp !== axH || c.ayFp !== ayH)
+      errs.push(`池底H→D坐标漂移: ${axH / 256},${ayH / 256} → ${c.axFp / 256},${c.ayFp / 256}`);
+    inp.D = 1; tickChar(c, inp);                                  // 纯↓
+    if (c.uwPose !== 'D') errs.push('纯↓姿态=' + c.uwPose + ' (应D)');
+    inp.D = 0; inp.U = 1; tickChar(c, inp);                       // 纯↑
+    if (c.uwPose !== 'U') errs.push('纯↑姿态=' + c.uwPose + ' (应U)');
+    inp.U = 0; inp.R = 1; tickChar(c, inp);                       // 回横卧
+    if (c.uwPose !== 'H') errs.push('回横游姿态=' + c.uwPose + ' (应H)');
+  }
+  parts.length = 0;
+  /* C. demo轨迹: 900tick逐tick记录(tickCount归零, 使tr索引与脚本时刻对齐: 脚本时刻t影响tr[t-1]) */
+  scriptMode = 'demo';
+  tickCount = 0;
+  const tr = [];
+  const jumps = [];
+  const transitions = [];
+  let jumpRec = null, emergeTick = -1, boostBeforeEmerge = -1;
+  const breathBodySet = new Set(), breathHeadSet = new Set(), diveFrameSet = new Set();
+  for (let i = 0; i < 900; i++){
+    const pre = yy.state, preAx = yy.axFp, preAy = yy.ayFp, preBb = worldBBox(yy);
+    tick();
+    const postBb = worldBBox(yy);
+    const hadLR = !!(Input.L || Input.R);                        // 本tick是否有横向输入(tick内不清L/R)
+    if (pre !== yy.state){
+      transitions.push([i, pre, yy.state, preAx, yy.axFp, preAy, yy.ayFp, hadLR]);
+      if ((pre === ST.DIVE && yy.state === ST.UW) || (pre === ST.UW && yy.state === ST.EMERGE))   // R6: 实际像素bbox逐帧连续
+        for (let e = 0; e < 4; e++)
+          if (Math.abs(postBb[e] - preBb[e]) > 10)
+            errs.push(`bbox跳变@tick${i} ${pre}→${yy.state}: [${preBb}]→[${postBb}]`);
+      if (yy.state === ST.JUMP) jumpRec = { dir: yy.jumpDir, x0: yy.axFp };
+      if (pre === ST.JUMP && jumpRec) jumps.push([jumpRec.dir, (yy.axFp - jumpRec.x0) / 256]);
+      if (yy.state === ST.EMERGE){ emergeTick = i; boostBeforeEmerge = tr.length ? tr[tr.length - 1].boost : -1; }
+    }
+    if (yy.state === ST.DIVE) diveFrameSet.add(diveIdx(yy.t));
+    if (yy.state === ST.BREATH){
+      const bi = breathBodyIdx(yy.t), hi = breathHeadIdx(yy.t);
+      if (bi >= 0) breathBodySet.add(bi);
+      if (hi >= 0) breathHeadSet.add(hi);
+    }
+    tr.push({ t: i, st: yy.state, ax: yy.axFp, ay: yy.ayFp, boost: yy.boostFp, air: yy.airFp, pose: yy.uwPose });
+    /* 全整数断言 */
+    const vs = [yy.axFp, yy.ayFp, yy.boostFp, yy.airFp, dad.axFp, dad.ayFp, dad.boostFp, dad.airFp];
+    for (const p of parts) vs.push(p.xFp, p.yFp);
+    for (const v of vs) if (!Number.isInteger(v)){ errs.push('non-integer@tick' + i); break; }
+    /* 不裁图断言(双人, 实际非透明像素世界bbox) */
+    for (const c of [yy, dad]){
+      const bb = worldBBox(c);
+      if (bb[0] < 0 || bb[2] >= 256 || bb[1] < 0 || bb[3] >= 168){ errs.push(`clip ${c.avatar} ${c.state}@tick${i} [${bb}]`); break; }
+    }
+    if (errs.length > 12) break;
+  }
+  /* 状态切换断言: 无横向输入且旧态≠JUMP时ax不变; 脚底纵向跳变≤3px; 落点/入水点精确 */
+  for (const [i, pre, cur, ax0, ax1, ay0, ay1, hadLR] of transitions){
+    if (pre !== ST.JUMP && !hadLR && ax0 !== ax1)
+      errs.push(`切换横移@tick${i} ${pre}→${cur}: ${ax0 / 256}→${ax1 / 256}`);
+    if (Math.abs(ay1 - ay0) > FP(3))
+      errs.push(`脚底跳变@tick${i} ${pre}→${cur}: ${ay0 / 256}→${ay1 / 256}`);
+    if ((pre === ST.JUMP || pre === ST.EMERGE || pre === ST.BREATH) && cur === ST.SURF && ay1 !== FOOT_SURF_Fp)
+      errs.push(`${pre}→SURF 脚底=${ay1 / 256} (应108)`);
+    if (pre === ST.DIVE && cur === ST.UW && ay1 !== T.uwTopFp)
+      errs.push(`DIVE→UW 脚底=${ay1 / 256} (应120)`);
+  }
+  const at = t => tr[t];
+  /* 跳跃: 首跳垂直dx=0; 预选右+≥15px; 预选左-≤-15px */
+  if (jumps.length !== 3) errs.push('jumps=' + jumps.length + ' (应3: 垂直/右/左)');
+  if (jumps[0] && (jumps[0][0] !== 0 || jumps[0][1] !== 0)) errs.push('垂直跳 dir=' + jumps[0][0] + ' dx=' + jumps[0][1]);
+  if (jumps[1] && (jumps[1][0] !== 1 || jumps[1][1] < 15)) errs.push('右跳 dir=' + jumps[1][0] + ' dx=' + jumps[1][1]);
+  if (jumps[2] && (jumps[2][0] !== -1 || jumps[2][1] > -15)) errs.push('左跳 dir=' + jumps[2][0] + ' dx=' + jumps[2][1]);
+  /* 点按下潜弹回: 300..350不进UW, 345回SURF */
+  if (tr.slice(300, 351).some(r => r.st === ST.UW || r.st === ST.EMERGE)) errs.push('点按下潜未弹回');
+  if (at(345).st !== ST.SURF) errs.push('tick345应SURF 实际' + at(345).st);
+  /* 按住下潜: diveTicks=10实测 → 360按下, tr[369]进UW; DIVE三过程帧{0,1,2}都出现 */
+  const uwTick = tr.findIndex(r => r.st === ST.UW);
+  if (uwTick !== 369) errs.push('按住下潜进UW@' + uwTick + ' (应369=360+diveTicks10-1)');
+  if (!(diveFrameSet.has(0) && diveFrameSet.has(1) && diveFrameSet.has(2)))
+    errs.push('DIVE帧集合=' + [...diveFrameSet].join(',') + ' (应0,1,2)');
+  /* UW三态: 右游=H横卧; 静止A段与纯下移段=D头朝下; demo中出现纯↑=U头朝上 */
+  if (at(415).pose !== 'H') errs.push('UW右游应横卧(H) 实际' + at(415).pose);
+  if (at(462).pose !== 'D') errs.push('UW静止应头朝下(D) 实际' + at(462).pose);
+  if (at(475).pose !== 'D') errs.push('UW纯下移应头朝下(D) 实际' + at(475).pose);
+  if (!tr.some(r => r.st === ST.UW && r.pose === 'U')) errs.push('demo未出现UW纯↑头朝上(U)姿态');
+  /* 静止A不加boost; 移动A加boost(脚本时刻t影响tr[t-1]) */
+  if (!(at(462).boost <= at(459).boost)) errs.push('静止A后boost增加 ' + at(459).boost + '->' + at(462).boost);
+  if (!(at(419).boost > at(418).boost)) errs.push('移动A未加boost@420 ' + at(418).boost + '->' + at(419).boost);
+  if (!(at(429).boost > at(428).boost)) errs.push('移动A未加boost@430 ' + at(428).boost + '->' + at(429).boost);
+  /* 八向: 470..545 ay范围≥4px, ax范围≥3px, 斜向tick≥12 */
+  const seg = tr.slice(470, 546);
+  const axs = seg.map(r => r.ax), ays = seg.map(r => r.ay);
+  if (Math.max(...ays) - Math.min(...ays) < FP(4)) errs.push('八向ay范围不足');
+  if (Math.max(...axs) - Math.min(...axs) < FP(3)) errs.push('八向ax范围不足');
+  let diagTicks = 0;
+  for (let i = 471; i <= 545; i++) if (tr[i].ax !== tr[i-1].ax && tr[i].ay !== tr[i-1].ay) diagTicks++;
+  if (diagTicks < 12) errs.push('斜向tick=' + diagTicks + ' (应≥12)');
+  /* EMERGE: boost清零(前一tick>0→0); ≤600回SURF */
+  if (emergeTick < 0) errs.push('未EMERGE');
+  else {
+    if (!(boostBeforeEmerge > 0)) errs.push('EMERGE前boost应>0 实际' + boostBeforeEmerge);
+    if (at(emergeTick).boost !== 0) errs.push('EMERGE后boost未清零');
+  }
+  if (!tr.slice(560, 601).some(r => r.st === ST.SURF)) errs.push('600前未回SURF');
+  /* BREATH: 638耗空Oxy→640进入, 44tick锁定→tr[639..682], tr[683]退出; 身体三帧/头像两帧; 过程不回氧; 完成air=airMax */
+  if (!(at(637).air < FP(2))) errs.push('耗空Oxy失败 air=' + (at(637).air / 256));
+  if (!tr.slice(645, 683).every(r => r.st === ST.BREATH)) errs.push('BREATH未锁定到682');
+  if (at(683).st !== ST.SURF) errs.push('tick683应退出BREATH 实际' + at(683).st);
+  if (at(682).air !== at(639).air) errs.push('BREATH过程不应回氧 ' + at(639).air + '->' + at(682).air);
+  if (at(683).air !== T.airMaxFp) errs.push('BREATH完成未回满 air=' + (at(683).air / 256));
+  if (breathBodySet.size !== 3) errs.push('BREATH身体帧集合=' + [...breathBodySet].join(','));
+  if (breathHeadSet.size !== 2) errs.push('BREATH头像帧集合=' + [...breathHeadSet].join(','));
+  /* BREATH头像静态断言: 每人每向每帧与normal差异>0, 两帧互异 */
+  for (const who of ['yy','dd']) for (const d of ['left','right']){
+    const base = AVATAR[who][d].join('');
+    for (const f of [0,1]){
+      if (AVATAR_BREATH[who][d][f].join('') === base) errs.push(`breath ${who}.${d}.f${f} 与normal相同`);
+    }
+    if (AVATAR_BREATH[who][d][0].join('') === AVATAR_BREATH[who][d][1].join('')) errs.push(`breath ${who}.${d} 两帧相同`);
+  }
+  /* 侧脸/垂直头静态断言: 左右非精确镜像(人工修正光源); 与正脸不同 */
+  for (const HS of [HEAD_SIDE, HEAD_DOWN]) for (const who of ['yy','dd']){
+    const mir = HS[who].right.map(r => [...r].reverse().join(''));
+    if (mir.join('') === HS[who].left.join('')) errs.push(`侧脸/垂直头 ${who} 左右精确镜像`);
+    if (HS[who].right.join('') === AVATAR[who].right.join('')) errs.push(`侧脸/垂直头 ${who} 与正脸相同`);
+  }
+  /* Oxy: 水下耗氧(400<376); 水面自然恢复(630>601) */
+  if (!(at(400).air < at(376).air)) errs.push('水下未耗氧');
+  if (!(at(630).air > at(601).air)) errs.push('水面未自然回氧');
+  /* E. 10万tick确定性压力: LCG伪随机输入(imul精确低32位, 禁Math.random), 全程整数/锚点域内/实际像素不裁图 */
+  let stressOk = true;
+  {
+    let seed = 0x12345678;
+    const rnd = () => { seed = (Math.imul(seed, 1103515245) + 12345) | 0; return (seed >>> 0) / 4294967296; };
+    const c = mkChar(FP(128), 1, 'yy', '#3C9CF0');
+    const inp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+    for (let i = 0; i < 100000; i++){
+      const r = rnd();
+      inp.L = r < 0.2 ? 1 : 0; inp.R = r >= 0.2 && r < 0.4 ? 1 : 0;
+      inp.U = r >= 0.4 && r < 0.55 ? 1 : 0; inp.D = r >= 0.55 && r < 0.7 ? 1 : 0;
+      inp.pA = rnd() < 0.05 ? 1 : 0; inp.pB = rnd() < 0.02 ? 1 : 0;
+      tickChar(c, inp);
+      if (!Number.isInteger(c.axFp) || !Number.isInteger(c.ayFp) || !Number.isInteger(c.airFp) || !Number.isInteger(c.boostFp)){
+        errs.push('stress非整数@' + i); stressOk = false; break;
+      }
+      if (c.axFp < ANCHOR_X_MIN_Fp || c.axFp > ANCHOR_X_MAX_Fp || c.ayFp < 0 || c.ayFp > FP(168)){
+        errs.push('stress锚点出域@' + i + ' ay=' + (c.ayFp / 256)); stressOk = false; break;
+      }
+      const bb = worldBBox(c);
+      if (bb[0] < 0 || bb[2] >= 256 || bb[1] < 0 || bb[3] >= 168){
+        errs.push('stress裁图@' + i + ' ' + c.state + '/' + c.uwPose + ' [' + bb + ']'); stressOk = false; break;
+      }
+    }
+    parts.length = 0;
+  }
+  document.title = (errs.length ? 'FAIL ' : 'PASS ') +
+    JSON.stringify({ jumps, errs: errs.slice(0, 8), emergeTick, uwTick, transitions: transitions.length, stress100k: stressOk, parts: parts.length });
+  fitCanvas(); render();
+} else if (qs.has('sheet')){
+  /* GIF帧矩阵: 5列x24行=120格, 每格先跑7 tick(共840), 渲染后拷入大canvas */
+  scriptMode = 'demo';
+  const COLS = 5, ROWS = 24;
+  const big = document.createElement('canvas');
+  big.width = COLS * LW; big.height = ROWS * LH;
+  const bctx = big.getContext('2d');
+  bctx.imageSmoothingEnabled = false;
+  for (let i = 0; i < COLS * ROWS; i++){
+    for (let j = 0; j < 7; j++) tick();
+    render();
+    bctx.drawImage(sc, (i % COLS) * LW, ((i / COLS) | 0) * LH);
+  }
+  document.body.innerHTML = '';
+  document.body.appendChild(big);
+  document.title = 'SHEET ticks=' + tickCount;
+} else if (preRun > 0){
+  /* 验收截图模式: ?script=demo&to=N 同步预跑N tick后静态渲染(不启动rAF) */
+  for (let i = 0; i < preRun; i++) tick();
+  fitCanvas(); render();
+  if (qs.has('debug'))
+    document.title = JSON.stringify({ tick: tickCount,
+      yy: { x: yy.axFp / 256, y: yy.ayFp / 256, st: yy.state, dir: yy.dir, pref: yy.prefDir,
+            boost: yy.boostFp / 256, air: Math.round(yy.airFp / 256) },
+      dad: { x: dad.axFp / 256, y: dad.ayFp / 256, st: dad.state }, parts: parts.length });
+} else {
+  fitCanvas();
+  requestAnimationFrame(frame);
+}
 </script>
 </body>
 </html>

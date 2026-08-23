@@ -1,0 +1,3889 @@
+{
+ "meta": {
+  "schemaVersion": 1,
+  "stage": "R3B-I",
+  "artifactKind": "identity-sprites",
+  "applied": true,
+  "sourceMaster": {
+   "file": "sprites_r3a_human_baked.js",
+   "sha256": "bbd40b05f6d7143826f7d554f04deb878a98bf503c09c6fd5bf00c1e612bf7f2"
+  },
+  "r3bm": {
+   "generatorFile": "R3B-M/build_identity_masks_r3bm.py",
+   "generatorSha256": "deac9f147ae26d43f61ee62a7146d8866a7d30208f802e9e64ea176116a37d6c",
+   "jsonFile": "R3B-M/identity_masks_r3bm.json",
+   "jsonSha256": "00448adfa11cacd37a9b1aa39d94f2772cb6a311e2f86a4a79b852d5699053f1",
+   "jsFile": "R3B-M/identity_masks_r3bm_baked.js",
+   "jsSha256": "9ffd8aafa8ce77315d42f2f8e5a3fb85ffc3a107c22404bd5ba327a65f91ffaa"
+  },
+  "stage2Avatar": {
+   "file": "avatar_paint.py",
+   "sha256": "615daea6e81acbc60d1e59bf5c83fd4582fd064c35b1d5aa425c1793d7b1194e",
+   "note": "仅提供身份特征与批准身份色, 24x24头像未贴入动作帧"
+  },
+  "surfaceIdentityPalette": {
+   "C": "#3C9CF0",
+   "c": "#1E5AA8",
+   "H": "#38241A",
+   "h": "#5C4030"
+  },
+  "underwaterIdentityColorMapping": {
+   "yy": {
+    "泳帽主色": "m",
+    "泳帽高光(左上光源)": "l",
+    "泳帽深部/后缘": "u",
+    "泳镜镜片/高光": "l/w",
+    "泳镜框与脑后镜带端": "u/l"
+   },
+   "dd": {
+    "头发/发际线": "u(主)+l(顶缘单点反光)",
+    "眼镜框/镜腿": "u",
+    "镜片反光": "l/w"
+   }
+  },
+  "poses": [
+   "SURF0",
+   "JUMP_AIR",
+   "UW_NORMAL"
+  ],
+  "directions": [
+   "L",
+   "R"
+  ],
+  "persons": [
+   "yy",
+   "dd"
+  ],
+  "blindOrder": [
+   "JUMP_AIR_dd_R",
+   "SURF0_yy_L",
+   "UW_NORMAL_dd_L",
+   "JUMP_AIR_yy_L",
+   "SURF0_dd_R",
+   "UW_NORMAL_yy_R",
+   "JUMP_AIR_yy_R",
+   "SURF0_dd_L",
+   "UW_NORMAL_dd_R",
+   "SURF0_yy_R",
+   "JUMP_AIR_dd_L",
+   "UW_NORMAL_yy_L"
+  ],
+  "integrationStatus": "not-integrated; machine-PASS only; 视觉需用户/Codex人工审核"
+ },
+ "sprites": {
+  "SURF0": {
+   "yy": {
+    "L": {
+     "w": 31,
+     "h": 21,
+     "root": [
+      15,
+      10
+     ],
+     "visibleBBox": [
+      0,
+      0,
+      30,
+      20
+     ],
+     "rows": [
+      "..OOOOOOOOOOOOOOOOO............",
+      "..OCCCCCCCCCCCCcccO............",
+      "OOOCCCCCCCCCCCccccOO...........",
+      "OCCCcccccccccccccccO...........",
+      "OOOSsOsSSSSSdOOOOOOO...........",
+      "OOOSsDdsSSSSdOOOOOOO...........",
+      "OOOddSddSSSddSSddOOO...........",
+      "OOOODSSSSSSOsOOOSDOO...........",
+      "..O..OsSSdOOcWWOSDOO...........",
+      ".....OsSddOOcWWOSDOd...........",
+      "..SSSdsSSsdSSSSSSddSs..........",
+      ".dSSSSSSSSSSSSSSSSSSdOOOO......",
+      "..OOOOOOOOOOOOsSSSSOdSSSSDD....",
+      "...OOOOOOOOOOODdSdddsSSSSdd....",
+      "...OOOOOOOOOOOODSDOSSSSSSSSsdD.",
+      "...OOOOOOOOOOOODSDOSSSSSSSSSdO.",
+      "..OOOOOOOOOOOOODSDOSSSSSSSSSdO.",
+      ".DOOOOOOOOOOOODdSDOSSSSSSSSSsd.",
+      "OOOOOOOOOOOOOOsSSDOSSSSSSSSSSSO",
+      "..OSsOOOOOOOdSSsOOOSSSSSSSS....",
+      "...ODSSSSSSSdOOD..............."
+     ],
+     "contentSha256": "b27dfb196de574cb4722ed350f6b43c9ea6e091c1aa2524b1dd5367d670922c9",
+     "changedPixels": [
+      [
+       1,
+       3
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       3,
+       3
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       4,
+       3
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       6
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       14,
+       6
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ]
+     ],
+     "changedPixelsTotal": 60,
+     "submaskChanges": {
+      "hairOrCapMask": 48,
+      "eyesOrGlassesMask": 9,
+      "faceDetailMask": 2,
+      "mouthMask": 1
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "C": "#3C9CF0",
+      "D": "#3C2018",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "c": "#1E5AA8",
+      "d": "#784031",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "C": "#3C9CF0",
+      "O": "#000000",
+      "S": "#F18162",
+      "c": "#1E5AA8",
+      "d": "#784031"
+     },
+     "identityNote": "蓝色泳帽(C主/c右下背光)+黑框泳镜(c瞳孔朝向前方,W镜片)+简洁小嘴"
+    },
+    "R": {
+     "w": 31,
+     "h": 21,
+     "root": [
+      15,
+      10
+     ],
+     "visibleBBox": [
+      0,
+      0,
+      30,
+      20
+     ],
+     "rows": [
+      "............OOOOOOOOOOOOOOOOO..",
+      "............OCCCCCCCCCCCCcccO..",
+      "...........OOCCCCCCCCCCCccccOOO",
+      "...........OCCCcccccccccccccccO",
+      "...........OOOOOOOdSSSSSsOsSOOO",
+      "...........OOOOOOOdSSSSsdDsSOOO",
+      "...........OOOddSSddSSSddSddOOO",
+      "...........OODSOOOsOSSSSSSDOOOO",
+      "...........OODSOWWcOOdSSsO..O..",
+      "...........dODSOWWcOOddSsO.....",
+      "..........sSddSSSSSSdsSSsdSSS..",
+      "......OOOOdSSSSSSSSSSSSSSSSSSd.",
+      "....DDSSSSdOSSSSsOOOOOOOOOOOO..",
+      "....ddSSSSsdddSdDOOOOOOOOOOO...",
+      ".DdsSSSSSSSSODSDOOOOOOOOOOOO...",
+      ".OdSSSSSSSSSODSDOOOOOOOOOOOO...",
+      ".OdSSSSSSSSSODSDOOOOOOOOOOOOO..",
+      ".dsSSSSSSSSSODSdDOOOOOOOOOOOOD.",
+      "OSSSSSSSSSSSODSSsOOOOOOOOOOOOOO",
+      "....SSSSSSSSOOOsSSdOOOOOOOsSO..",
+      "...............DOOdSSSSSSSDO..."
+     ],
+     "contentSha256": "049c3ba60cc0cb6efb79a27408a41cd10ac5ab403eca5aa53571f7651e3a788b",
+     "changedPixels": [
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       16,
+       6
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       17,
+       6
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       19,
+       9
+      ],
+      [
+       20,
+       1
+      ],
+      [
+       20,
+       2
+      ],
+      [
+       20,
+       3
+      ],
+      [
+       21,
+       1
+      ],
+      [
+       21,
+       2
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       22,
+       1
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       22,
+       9
+      ],
+      [
+       23,
+       1
+      ],
+      [
+       23,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       24,
+       1
+      ],
+      [
+       24,
+       2
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       25,
+       1
+      ],
+      [
+       25,
+       2
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       26,
+       1
+      ],
+      [
+       26,
+       2
+      ],
+      [
+       26,
+       3
+      ],
+      [
+       27,
+       1
+      ],
+      [
+       27,
+       2
+      ],
+      [
+       27,
+       3
+      ],
+      [
+       28,
+       3
+      ],
+      [
+       29,
+       3
+      ]
+     ],
+     "changedPixelsTotal": 60,
+     "submaskChanges": {
+      "hairOrCapMask": 48,
+      "eyesOrGlassesMask": 9,
+      "faceDetailMask": 2,
+      "mouthMask": 1
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "C": "#3C9CF0",
+      "D": "#3C2018",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "c": "#1E5AA8",
+      "d": "#784031",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "C": "#3C9CF0",
+      "O": "#000000",
+      "S": "#F18162",
+      "c": "#1E5AA8",
+      "d": "#784031"
+     },
+     "identityNote": "蓝色泳帽(C主/c右下背光)+黑框泳镜(c瞳孔朝向前方,W镜片)+简洁小嘴"
+    }
+   },
+   "dd": {
+    "L": {
+     "w": 31,
+     "h": 21,
+     "root": [
+      15,
+      10
+     ],
+     "visibleBBox": [
+      0,
+      0,
+      30,
+      20
+     ],
+     "rows": [
+      "..OOOOOOOOOOOOOOOOO............",
+      "..OhhhHHHHHHHHHHHHO............",
+      "OOOhhHHHHHHHHHHHHHOO...........",
+      "OHHSsHHHHHHHHHHHHHHO...........",
+      "OOOSsOsSSSSSdOOOOOOO...........",
+      "OOOSsDdsSSSSdOOOOOOO...........",
+      "OOOddSddSSSddssddOOO...........",
+      "OOOODSSSSSSOdHHHSDOO...........",
+      "..O..OsdSdOHOWWHSDOO...........",
+      ".....OsSddOHOWWHSDOd...........",
+      "..SSSdsSSsdSSSSSSddSs..........",
+      ".dSSSSSSSSSSSSSSSSSSdOOOO......",
+      "..OOOOOOOOOOOOsSSSSOdSSSSDD....",
+      "...OOOOOOOOOOODdSdddsSSSSdd....",
+      "...OOOOOOOOOOOODSDOSSSSSSSSsdD.",
+      "...OOOOOOOOOOOODSDOSSSSSSSSSdO.",
+      "..OOOOOOOOOOOOODSDOSSSSSSSSSdO.",
+      ".DOOOOOOOOOOOODdSDOSSSSSSSSSsd.",
+      "OOOOOOOOOOOOOOsSSDOSSSSSSSSSSSO",
+      "..OSsOOOOOOOdSSsOOOSSSSSSSS....",
+      "...ODSSSSSSSdOOD..............."
+     ],
+     "contentSha256": "c78f0a35dc7247c5652468063e75662a377e29597c1f617969ddfe6b535cd17b",
+     "changedPixels": [
+      [
+       1,
+       3
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       3,
+       1
+      ],
+      [
+       3,
+       2
+      ],
+      [
+       4,
+       1
+      ],
+      [
+       4,
+       2
+      ],
+      [
+       5,
+       1
+      ],
+      [
+       5,
+       2
+      ],
+      [
+       5,
+       3
+      ],
+      [
+       6,
+       1
+      ],
+      [
+       6,
+       2
+      ],
+      [
+       6,
+       3
+      ],
+      [
+       7,
+       1
+      ],
+      [
+       7,
+       2
+      ],
+      [
+       7,
+       3
+      ],
+      [
+       7,
+       8
+      ],
+      [
+       8,
+       1
+      ],
+      [
+       8,
+       2
+      ],
+      [
+       8,
+       3
+      ],
+      [
+       8,
+       9
+      ],
+      [
+       9,
+       1
+      ],
+      [
+       9,
+       2
+      ],
+      [
+       9,
+       3
+      ],
+      [
+       10,
+       1
+      ],
+      [
+       10,
+       2
+      ],
+      [
+       10,
+       3
+      ],
+      [
+       11,
+       1
+      ],
+      [
+       11,
+       2
+      ],
+      [
+       11,
+       3
+      ],
+      [
+       11,
+       8
+      ],
+      [
+       11,
+       9
+      ],
+      [
+       12,
+       1
+      ],
+      [
+       12,
+       2
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       12,
+       7
+      ],
+      [
+       12,
+       8
+      ],
+      [
+       12,
+       9
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       7
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       14,
+       7
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       18,
+       3
+      ]
+     ],
+     "changedPixelsTotal": 58,
+     "submaskChanges": {
+      "hairOrCapMask": 46,
+      "eyesOrGlassesMask": 9,
+      "faceDetailMask": 1,
+      "mouthMask": 2
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "D": "#3C2018",
+      "H": "#38241A",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "d": "#784031",
+      "h": "#5C4030",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "H": "#38241A",
+      "O": "#000000",
+      "d": "#784031",
+      "h": "#5C4030"
+     },
+     "identityNote": "棕发(H主/h左上受光, 前额保留肤色发际线)+棕框眼镜(O瞳孔朝前,W镜片)+微笑嘴角"
+    },
+    "R": {
+     "w": 31,
+     "h": 21,
+     "root": [
+      15,
+      10
+     ],
+     "visibleBBox": [
+      0,
+      0,
+      30,
+      20
+     ],
+     "rows": [
+      "............OOOOOOOOOOOOOOOOO..",
+      "............OhhhHHHHHHHHHHHHO..",
+      "...........OOhhHHHHHHHHHHHHHOOO",
+      "...........OHHHHHHHHHHHHHHsSHHO",
+      "...........OOOOOOOdSSSSSsOsSOOO",
+      "...........OOOOOOOdSSSSsdDsSOOO",
+      "...........OOOddssddSSSddSddOOO",
+      "...........OODSHHHdOSSSSSSDOOOO",
+      "...........OODSHWWOHOdSdsO..O..",
+      "...........dODSHWWOHOddSsO.....",
+      "..........sSddSSSSSSdsSSsdSSS..",
+      "......OOOOdSSSSSSSSSSSSSSSSSSd.",
+      "....DDSSSSdOSSSSsOOOOOOOOOOOO..",
+      "....ddSSSSsdddSdDOOOOOOOOOOO...",
+      ".DdsSSSSSSSSODSDOOOOOOOOOOOO...",
+      ".OdSSSSSSSSSODSDOOOOOOOOOOOO...",
+      ".OdSSSSSSSSSODSDOOOOOOOOOOOOO..",
+      ".dsSSSSSSSSSODSdDOOOOOOOOOOOOD.",
+      "OSSSSSSSSSSSODSSsOOOOOOOOOOOOOO",
+      "....SSSSSSSSOOOsSSdOOOOOOOsSO..",
+      "...............DOOdSSSSSSSDO..."
+     ],
+     "contentSha256": "8df35d1e9392fa6cfaefb131798012f231a5b4b0818f0311770f2f9311242b65",
+     "changedPixels": [
+      [
+       12,
+       3
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       16,
+       7
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       18,
+       8
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       19,
+       9
+      ],
+      [
+       20,
+       1
+      ],
+      [
+       20,
+       2
+      ],
+      [
+       20,
+       3
+      ],
+      [
+       21,
+       1
+      ],
+      [
+       21,
+       2
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       22,
+       1
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       22,
+       9
+      ],
+      [
+       23,
+       1
+      ],
+      [
+       23,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       23,
+       8
+      ],
+      [
+       24,
+       1
+      ],
+      [
+       24,
+       2
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       25,
+       1
+      ],
+      [
+       25,
+       2
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       26,
+       1
+      ],
+      [
+       26,
+       2
+      ],
+      [
+       27,
+       1
+      ],
+      [
+       27,
+       2
+      ],
+      [
+       28,
+       3
+      ],
+      [
+       29,
+       3
+      ]
+     ],
+     "changedPixelsTotal": 58,
+     "submaskChanges": {
+      "hairOrCapMask": 46,
+      "eyesOrGlassesMask": 9,
+      "faceDetailMask": 1,
+      "mouthMask": 2
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "D": "#3C2018",
+      "H": "#38241A",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "d": "#784031",
+      "h": "#5C4030",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "H": "#38241A",
+      "O": "#000000",
+      "d": "#784031",
+      "h": "#5C4030"
+     },
+     "identityNote": "棕发(H主/h左上受光, 前额保留肤色发际线)+棕框眼镜(O瞳孔朝前,W镜片)+微笑嘴角"
+    }
+   }
+  },
+  "JUMP_AIR": {
+   "yy": {
+    "L": {
+     "w": 55,
+     "h": 42,
+     "root": [
+      22,
+      41
+     ],
+     "visibleBBox": [
+      0,
+      0,
+      53,
+      41
+     ],
+     "rows": [
+      ".............OOOOOOOOODdOODdOOOOOO..dddddddd...........",
+      "...........OOOCCCCCCCCCCCCCCCCcccOODSSSSSSSdO..........",
+      "...........OCCCCCCCCCCCCCCCCCCccccODSSSdDdSdOD.........",
+      "...........OCCCCCCCCCCCCCCCCCcccccODSSSdOdSdOOO........",
+      "...........OCCCCCCCCCcccccccccccccODSSSdOODdsssD.......",
+      "...........OOOOOOOOOdSSSSSdDdsSSOOODSSSsssssSSSDO......",
+      "...........OOOOOOOOOdSSSSSDOsSSSOOODSSSSSSSSSSSDO......",
+      "...........OOODSSOOOsOdSSSSSSSOOOOODSSSSSSSSSDO........",
+      "...........OOODSSOWOsOdSSSSSSSOOOOODSSSSSSSSSDO........",
+      "...........OOODSSOcWWOsOsSSSDOOWOOSSSSSSSdOOO..........",
+      "...........SSODSSOcWWOsOsSSSDOOW..SSSSSSSdO............",
+      "...........SSDdSSOOOOOsDsddSdDOW..SSSSSssd.............",
+      "..........OSSSSSSSSSSSSSSSSSSSSSOOSSSSSdO..............",
+      ".........DOssssSSSSsssssssSSSSSSOOSSSSsd...............",
+      "....DDDDDDDOOODSSSsOOOOOOOdsssSSOOssSsO................",
+      "..OdSSSSSSSOOODSSSsOOOOOOOOOOOSSOOODSsO................",
+      ".ddsSSSSSSSOOssddSsOOOOOOOOOOOSSOOOOdd.................",
+      "OdSSSSSSSSSOOWWODSsOOOOOOOOOOOSSOOOOO..................",
+      "dsSSSSSSSSSOOWWssdddddddddddddddsssdOO.................",
+      "SSSSSddsSSSOOWWWWOOdddddddddddssWWWWOOODddddddd......O.",
+      "SSSSSDOsSSSOOWWWWOOOOOOOOOOOOOWWWWWWOOOdSSSSSSSDOOOOOO.",
+      "SSSSSssDDsSOOWWWWWsODsssssDOsWWWWWDDODssSSSSSSSssssOOO.",
+      "SSSSSSSDOsSOOWWWWWWOdSSSSSDOWWWWWWOOODSSSSSSSSSSSSSOOO.",
+      "SSSdDDDdsDDOODdWWWWWsDDDDDsWWWWWDDODssSSSSSSSSSSSSSOOO.",
+      "SSSssDOsSDOssODWWWWWWWWWWWWWWWDDOOODSSSSSSSSSSSSSSSOOO.",
+      "SSSSSDOsSDOSSODWWWWWWWWWWWWWWWOOOOODSSSSSSSSSSSSSSSOOO.",
+      "SSSSSDOOOOOOOOOODWWWWWWWWWDOOOOOOOODSSSSSSSSSSSSSDOOO..",
+      "SSSSSDOOOOOOOO...WWWWWWWWWDOOOOOOOODSSSSSSSSSSSSSDOOO..",
+      "SSSSSDOOO........OOOOOOOOOOOOOOOOOODSSSSSSSSSSSSSDOOO..",
+      "SSSSSDOOO........OOOOOOOOOOOOOOOOOODssSSSsssSSSssDOOO..",
+      "sssssDOOO........OOOOOOOOOOOOOOOOOOOODsssDODsssDOOO....",
+      "OOOOOOO..........OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO....",
+      ".................OODDDOOOOOOOOOOOO.....................",
+      ".................ODSSSdOOOOOOOOOOO.....................",
+      ".................ddSSSsdddddddOO.......................",
+      ".................SSSSSSSSSSSSSOO.......................",
+      ".................SSSSSSSSSSSSSOO.......................",
+      ".................SSSSSSSSSSSdd.........................",
+      ".................SSSSSSSSSSSDO.........................",
+      ".................DdSSSSSSSdD...........................",
+      "...................DDDDDDD.............................",
+      "...................OOOOOOO............................."
+     ],
+     "contentSha256": "e4fc50ccfdfd8d410c0543eaa538e3d1321b9a4e010c99503e653c34fbdffa83",
+     "changedPixels": [
+      [
+       12,
+       2
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       17,
+       10
+      ],
+      [
+       17,
+       11
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       18,
+       10
+      ],
+      [
+       18,
+       11
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       19,
+       11
+      ],
+      [
+       20,
+       1
+      ],
+      [
+       20,
+       2
+      ],
+      [
+       20,
+       3
+      ],
+      [
+       20,
+       4
+      ],
+      [
+       20,
+       11
+      ],
+      [
+       21,
+       1
+      ],
+      [
+       21,
+       2
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       21,
+       4
+      ],
+      [
+       21,
+       9
+      ],
+      [
+       21,
+       10
+      ],
+      [
+       21,
+       11
+      ],
+      [
+       22,
+       1
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       22,
+       4
+      ],
+      [
+       23,
+       1
+      ],
+      [
+       23,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       23,
+       4
+      ],
+      [
+       24,
+       1
+      ],
+      [
+       24,
+       2
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       24,
+       4
+      ],
+      [
+       25,
+       1
+      ],
+      [
+       25,
+       2
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       25,
+       4
+      ],
+      [
+       25,
+       11
+      ],
+      [
+       26,
+       1
+      ],
+      [
+       26,
+       2
+      ],
+      [
+       26,
+       3
+      ],
+      [
+       26,
+       4
+      ],
+      [
+       26,
+       11
+      ],
+      [
+       27,
+       1
+      ],
+      [
+       27,
+       2
+      ],
+      [
+       27,
+       3
+      ],
+      [
+       27,
+       4
+      ],
+      [
+       28,
+       1
+      ],
+      [
+       28,
+       2
+      ],
+      [
+       28,
+       3
+      ],
+      [
+       28,
+       4
+      ],
+      [
+       29,
+       1
+      ],
+      [
+       29,
+       2
+      ],
+      [
+       29,
+       3
+      ],
+      [
+       29,
+       4
+      ],
+      [
+       30,
+       1
+      ],
+      [
+       30,
+       2
+      ],
+      [
+       30,
+       3
+      ],
+      [
+       30,
+       4
+      ],
+      [
+       30,
+       9
+      ],
+      [
+       30,
+       10
+      ],
+      [
+       30,
+       11
+      ],
+      [
+       31,
+       1
+      ],
+      [
+       31,
+       2
+      ],
+      [
+       31,
+       3
+      ],
+      [
+       31,
+       4
+      ],
+      [
+       32,
+       1
+      ],
+      [
+       32,
+       2
+      ],
+      [
+       32,
+       3
+      ],
+      [
+       32,
+       4
+      ],
+      [
+       33,
+       2
+      ],
+      [
+       33,
+       3
+      ],
+      [
+       33,
+       4
+      ]
+     ],
+     "changedPixelsTotal": 106,
+     "submaskChanges": {
+      "hairOrCapMask": 85,
+      "eyesOrGlassesMask": 19,
+      "faceDetailMask": 0,
+      "mouthMask": 2
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "C": "#3C9CF0",
+      "D": "#3C2018",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "c": "#1E5AA8",
+      "d": "#784031",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "C": "#3C9CF0",
+      "O": "#000000",
+      "c": "#1E5AA8",
+      "d": "#784031"
+     },
+     "identityNote": "蓝色泳帽(C主/c右下背光)+黑框大泳镜(c瞳孔,W镜片高光)+副眼点镜框+简洁小嘴"
+    },
+    "R": {
+     "w": 55,
+     "h": 42,
+     "root": [
+      32,
+      41
+     ],
+     "visibleBBox": [
+      1,
+      0,
+      54,
+      41
+     ],
+     "rows": [
+      "...........dddddddd..OOOOOOdDOOdDOOOOOOOOO.............",
+      "..........OdSSSSSSSDOOCCCCCCCCCCCCCCCCcccOOO...........",
+      ".........DOdSdDdSSSDOCCCCCCCCCCCCCCCCCCccccO...........",
+      "........OOOdSdOdSSSDOCCCCCCCCCCCCCCCCCcccccO...........",
+      ".......DsssdDOOdSSSDOCCCCCCCCCcccccccccccccO...........",
+      "......ODSSSsssssSSSDOOOSSsdDdSSSSSdOOOOOOOOO...........",
+      "......ODSSSSSSSSSSSDOOOSSSsODSSSSSdOOOOOOOOO...........",
+      "........ODSSSSSSSSSDOOOOOSSSSSSSdOsOOOSSDOOO...........",
+      "........ODSSSSSSSSSDOOOOOSSSSSSSdOsOWOSSDOOO...........",
+      "..........OOOdSSSSSSSOOWOODSSSsOsOWWcOSSDOOO...........",
+      "............OdSSSSSSS..WOODSSSsOsOWWcOSSDOSS...........",
+      ".............dssSSSSS..WODdSddsDsOOOOOSSdDSS...........",
+      "..............OdSSSSSOOSSSSSSSSSSSSSSSSSSSSSO..........",
+      "...............dsSSSSOOSSSSSSsssssssSSSSssssOD.........",
+      "................OsSssOOSSsssdOOOOOOOsSSSDOOODDDDDDD....",
+      "................OsSDOOOSSOOOOOOOOOOOsSSSDOOOSSSSSSSdO..",
+      ".................ddOOOOSSOOOOOOOOOOOsSddssOOSSSSSSSsdd.",
+      "..................OOOOOSSOOOOOOOOOOOsSDOWWOOSSSSSSSSSdO",
+      ".................OOdsssdddddddddddddddssWWOOSSSSSSSSSsd",
+      ".O......dddddddDOOOWWWWssdddddddddddOOWWWWOOSSSsddSSSSS",
+      ".OOOOOODSSSSSSSdOOOWWWWWWOOOOOOOOOOOOOWWWWOOSSSsODSSSSS",
+      ".OOOssssSSSSSSSssDODDWWWWWsODsssssDOsWWWWWOOSsDDssSSSSS",
+      ".OOOSSSSSSSSSSSSSDOOOWWWWWWODSSSSSdOWWWWWWOOSsODSSSSSSS",
+      ".OOOSSSSSSSSSSSSSssDODDWWWWWsDDDDDsWWWWWdDOODDsdDDDdSSS",
+      ".OOOSSSSSSSSSSSSSSSDOOODDWWWWWWWWWWWWWWWDOssODSsODssSSS",
+      ".OOOSSSSSSSSSSSSSSSDOOOOOWWWWWWWWWWWWWWWDOSSODSsODSSSSS",
+      "..OOODSSSSSSSSSSSSSDOOOOOOOODWWWWWWWWWDOOOOOOOOOODSSSSS",
+      "..OOODSSSSSSSSSSSSSDOOOOOOOODWWWWWWWWW...OOOOOOOODSSSSS",
+      "..OOODSSSSSSSSSSSSSDOOOOOOOOOOOOOOOOOO........OOODSSSSS",
+      "..OOODssSSSsssSSSssDOOOOOOOOOOOOOOOOOO........OOODSSSSS",
+      "....OOODsssDODsssDOOOOOOOOOOOOOOOOOOOO........OOODsssss",
+      "....OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO..........OOOOOOO",
+      ".....................OOOOOOOOOOOODDDOO.................",
+      ".....................OOOOOOOOOOOdSSSDO.................",
+      ".......................OOdddddddsSSSdd.................",
+      ".......................OOSSSSSSSSSSSSS.................",
+      ".......................OOSSSSSSSSSSSSS.................",
+      ".........................ddSSSSSSSSSSS.................",
+      ".........................ODSSSSSSSSSSS.................",
+      "...........................DdSSSSSSSdD.................",
+      ".............................DDDDDDD...................",
+      ".............................OOOOOOO..................."
+     ],
+     "contentSha256": "18afbbd9b6ab408562128ec786e5dd7b76629440728396186c8496d007974ce2",
+     "changedPixels": [
+      [
+       21,
+       2
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       21,
+       4
+      ],
+      [
+       22,
+       1
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       22,
+       4
+      ],
+      [
+       23,
+       1
+      ],
+      [
+       23,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       23,
+       4
+      ],
+      [
+       24,
+       1
+      ],
+      [
+       24,
+       2
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       24,
+       4
+      ],
+      [
+       24,
+       9
+      ],
+      [
+       24,
+       10
+      ],
+      [
+       24,
+       11
+      ],
+      [
+       25,
+       1
+      ],
+      [
+       25,
+       2
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       25,
+       4
+      ],
+      [
+       26,
+       1
+      ],
+      [
+       26,
+       2
+      ],
+      [
+       26,
+       3
+      ],
+      [
+       26,
+       4
+      ],
+      [
+       27,
+       1
+      ],
+      [
+       27,
+       2
+      ],
+      [
+       27,
+       3
+      ],
+      [
+       27,
+       4
+      ],
+      [
+       28,
+       1
+      ],
+      [
+       28,
+       2
+      ],
+      [
+       28,
+       3
+      ],
+      [
+       28,
+       4
+      ],
+      [
+       28,
+       11
+      ],
+      [
+       29,
+       1
+      ],
+      [
+       29,
+       2
+      ],
+      [
+       29,
+       3
+      ],
+      [
+       29,
+       4
+      ],
+      [
+       29,
+       11
+      ],
+      [
+       30,
+       1
+      ],
+      [
+       30,
+       2
+      ],
+      [
+       30,
+       3
+      ],
+      [
+       30,
+       4
+      ],
+      [
+       31,
+       1
+      ],
+      [
+       31,
+       2
+      ],
+      [
+       31,
+       3
+      ],
+      [
+       31,
+       4
+      ],
+      [
+       32,
+       1
+      ],
+      [
+       32,
+       2
+      ],
+      [
+       32,
+       3
+      ],
+      [
+       32,
+       4
+      ],
+      [
+       33,
+       1
+      ],
+      [
+       33,
+       2
+      ],
+      [
+       33,
+       3
+      ],
+      [
+       33,
+       4
+      ],
+      [
+       33,
+       9
+      ],
+      [
+       33,
+       10
+      ],
+      [
+       33,
+       11
+      ],
+      [
+       34,
+       1
+      ],
+      [
+       34,
+       2
+      ],
+      [
+       34,
+       3
+      ],
+      [
+       34,
+       4
+      ],
+      [
+       34,
+       11
+      ],
+      [
+       35,
+       1
+      ],
+      [
+       35,
+       2
+      ],
+      [
+       35,
+       3
+      ],
+      [
+       35,
+       4
+      ],
+      [
+       35,
+       7
+      ],
+      [
+       35,
+       8
+      ],
+      [
+       35,
+       11
+      ],
+      [
+       36,
+       1
+      ],
+      [
+       36,
+       2
+      ],
+      [
+       36,
+       3
+      ],
+      [
+       36,
+       4
+      ],
+      [
+       36,
+       7
+      ],
+      [
+       36,
+       9
+      ],
+      [
+       36,
+       10
+      ],
+      [
+       36,
+       11
+      ],
+      [
+       37,
+       1
+      ],
+      [
+       37,
+       2
+      ],
+      [
+       37,
+       3
+      ],
+      [
+       37,
+       4
+      ],
+      [
+       37,
+       7
+      ],
+      [
+       37,
+       8
+      ],
+      [
+       37,
+       9
+      ],
+      [
+       37,
+       10
+      ],
+      [
+       37,
+       11
+      ],
+      [
+       38,
+       1
+      ],
+      [
+       38,
+       2
+      ],
+      [
+       38,
+       3
+      ],
+      [
+       38,
+       4
+      ],
+      [
+       39,
+       1
+      ],
+      [
+       39,
+       2
+      ],
+      [
+       39,
+       3
+      ],
+      [
+       39,
+       4
+      ],
+      [
+       40,
+       1
+      ],
+      [
+       40,
+       2
+      ],
+      [
+       40,
+       3
+      ],
+      [
+       40,
+       4
+      ],
+      [
+       41,
+       2
+      ],
+      [
+       41,
+       3
+      ],
+      [
+       41,
+       4
+      ],
+      [
+       42,
+       2
+      ],
+      [
+       42,
+       3
+      ],
+      [
+       42,
+       4
+      ]
+     ],
+     "changedPixelsTotal": 106,
+     "submaskChanges": {
+      "hairOrCapMask": 85,
+      "eyesOrGlassesMask": 19,
+      "faceDetailMask": 0,
+      "mouthMask": 2
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "C": "#3C9CF0",
+      "D": "#3C2018",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "c": "#1E5AA8",
+      "d": "#784031",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "C": "#3C9CF0",
+      "O": "#000000",
+      "c": "#1E5AA8",
+      "d": "#784031"
+     },
+     "identityNote": "蓝色泳帽(C主/c右下背光)+黑框大泳镜(c瞳孔,W镜片高光)+副眼点镜框+简洁小嘴"
+    }
+   },
+   "dd": {
+    "L": {
+     "w": 55,
+     "h": 42,
+     "root": [
+      22,
+      41
+     ],
+     "visibleBBox": [
+      0,
+      0,
+      53,
+      41
+     ],
+     "rows": [
+      ".............OOOOOOOOODdOODdOOOOOO..dddddddd...........",
+      "...........OOOhhhhhhhHHHHHHHHHHHHOODSSSSSSSdO..........",
+      "...........OhhhHHHHHHHHHHHHHHHHHHHODSSSdDdSdOD.........",
+      "...........OhhHHHHHHHHHHHHHHHHHHHHODSSSdOdSdOOO........",
+      "...........OHHHHHHHHHssSssSSHHHHHHODSSSdOODdsssD.......",
+      "...........OOOOOOOOOdSSSSSdDdsSSOOODSSSsssssSSSDO......",
+      "...........OOOOOOOOOdSSSSSDOsSSSOOODSSSSSSSSSSSDO......",
+      "...........OOODSSHHHsOdSSSSSSSOOOOODSSSSSSSSSDO........",
+      "...........OOODSSHWHsOdSSSSSSSOOOOODSSSSSSSSSDO........",
+      "...........OOODSSHOWWHsOdSSSDOHWOOSSSSSSSdOOO..........",
+      "...........SSODSSHOWWHsOdSSSDOHW..SSSSSSSdO............",
+      "...........SSDdSSHHHHHsDsddddDHW..SSSSSssd.............",
+      "..........OSSSSSSSSSSSSSSSSSSSSSOOSSSSSdO..............",
+      ".........DOssssSSSSsssssssSSSSSSOOSSSSsd...............",
+      "....DDDDDDDOOODSSSsOOOOOOOdsssSSOOssSsO................",
+      "..OdSSSSSSSOOODSSSsOOOOOOOOOOOSSOOODSsO................",
+      ".ddsSSSSSSSOOssddSsOOOOOOOOOOOSSOOOOdd.................",
+      "OdSSSSSSSSSOOWWODSsOOOOOOOOOOOSSOOOOO..................",
+      "dsSSSSSSSSSOOWWssdddddddddddddddsssdOO.................",
+      "SSSSSddsSSSOOWWWWOOdddddddddddssWWWWOOODddddddd......O.",
+      "SSSSSDOsSSSOOWWWWOOOOOOOOOOOOOWWWWWWOOOdSSSSSSSDOOOOOO.",
+      "SSSSSssDDsSOOWWWWWsODsssssDOsWWWWWDDODssSSSSSSSssssOOO.",
+      "SSSSSSSDOsSOOWWWWWWOdSSSSSDOWWWWWWOOODSSSSSSSSSSSSSOOO.",
+      "SSSdDDDdsDDOODdWWWWWsDDDDDsWWWWWDDODssSSSSSSSSSSSSSOOO.",
+      "SSSssDOsSDOssODWWWWWWWWWWWWWWWDDOOODSSSSSSSSSSSSSSSOOO.",
+      "SSSSSDOsSDOSSODWWWWWWWWWWWWWWWOOOOODSSSSSSSSSSSSSSSOOO.",
+      "SSSSSDOOOOOOOOOODWWWWWWWWWDOOOOOOOODSSSSSSSSSSSSSDOOO..",
+      "SSSSSDOOOOOOOO...WWWWWWWWWDOOOOOOOODSSSSSSSSSSSSSDOOO..",
+      "SSSSSDOOO........OOOOOOOOOOOOOOOOOODSSSSSSSSSSSSSDOOO..",
+      "SSSSSDOOO........OOOOOOOOOOOOOOOOOODssSSSsssSSSssDOOO..",
+      "sssssDOOO........OOOOOOOOOOOOOOOOOOOODsssDODsssDOOO....",
+      "OOOOOOO..........OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO....",
+      ".................OODDDOOOOOOOOOOOO.....................",
+      ".................ODSSSdOOOOOOOOOOO.....................",
+      ".................ddSSSsdddddddOO.......................",
+      ".................SSSSSSSSSSSSSOO.......................",
+      ".................SSSSSSSSSSSSSOO.......................",
+      ".................SSSSSSSSSSSdd.........................",
+      ".................SSSSSSSSSSSDO.........................",
+      ".................DdSSSSSSSdD...........................",
+      "...................DDDDDDD.............................",
+      "...................OOOOOOO............................."
+     ],
+     "contentSha256": "f0f556c3e4d57c57945fe11045e96916e53dd4614627af2cda9c1c9eb7c456a4",
+     "changedPixels": [
+      [
+       12,
+       2
+      ],
+      [
+       12,
+       3
+      ],
+      [
+       12,
+       4
+      ],
+      [
+       13,
+       2
+      ],
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       4
+      ],
+      [
+       14,
+       1
+      ],
+      [
+       14,
+       2
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       14,
+       4
+      ],
+      [
+       15,
+       1
+      ],
+      [
+       15,
+       2
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       15,
+       4
+      ],
+      [
+       16,
+       1
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       16,
+       4
+      ],
+      [
+       17,
+       1
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       17,
+       4
+      ],
+      [
+       17,
+       7
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       17,
+       10
+      ],
+      [
+       17,
+       11
+      ],
+      [
+       18,
+       1
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       18,
+       4
+      ],
+      [
+       18,
+       7
+      ],
+      [
+       18,
+       9
+      ],
+      [
+       18,
+       10
+      ],
+      [
+       18,
+       11
+      ],
+      [
+       19,
+       1
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       19,
+       4
+      ],
+      [
+       19,
+       7
+      ],
+      [
+       19,
+       8
+      ],
+      [
+       19,
+       11
+      ],
+      [
+       20,
+       1
+      ],
+      [
+       20,
+       2
+      ],
+      [
+       20,
+       3
+      ],
+      [
+       20,
+       4
+      ],
+      [
+       20,
+       11
+      ],
+      [
+       21,
+       1
+      ],
+      [
+       21,
+       2
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       21,
+       9
+      ],
+      [
+       21,
+       10
+      ],
+      [
+       21,
+       11
+      ],
+      [
+       22,
+       1
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       23,
+       1
+      ],
+      [
+       23,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       24,
+       1
+      ],
+      [
+       24,
+       2
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       24,
+       9
+      ],
+      [
+       24,
+       10
+      ],
+      [
+       25,
+       1
+      ],
+      [
+       25,
+       2
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       25,
+       11
+      ],
+      [
+       26,
+       1
+      ],
+      [
+       26,
+       2
+      ],
+      [
+       26,
+       3
+      ],
+      [
+       26,
+       11
+      ],
+      [
+       27,
+       1
+      ],
+      [
+       27,
+       2
+      ],
+      [
+       27,
+       3
+      ],
+      [
+       27,
+       11
+      ],
+      [
+       28,
+       1
+      ],
+      [
+       28,
+       2
+      ],
+      [
+       28,
+       3
+      ],
+      [
+       28,
+       4
+      ],
+      [
+       29,
+       1
+      ],
+      [
+       29,
+       2
+      ],
+      [
+       29,
+       3
+      ],
+      [
+       29,
+       4
+      ],
+      [
+       30,
+       1
+      ],
+      [
+       30,
+       2
+      ],
+      [
+       30,
+       3
+      ],
+      [
+       30,
+       4
+      ],
+      [
+       30,
+       9
+      ],
+      [
+       30,
+       10
+      ],
+      [
+       30,
+       11
+      ],
+      [
+       31,
+       1
+      ],
+      [
+       31,
+       2
+      ],
+      [
+       31,
+       3
+      ],
+      [
+       31,
+       4
+      ],
+      [
+       32,
+       1
+      ],
+      [
+       32,
+       2
+      ],
+      [
+       32,
+       3
+      ],
+      [
+       32,
+       4
+      ],
+      [
+       33,
+       2
+      ],
+      [
+       33,
+       3
+      ],
+      [
+       33,
+       4
+      ]
+     ],
+     "changedPixelsTotal": 102,
+     "submaskChanges": {
+      "hairOrCapMask": 78,
+      "eyesOrGlassesMask": 19,
+      "faceDetailMask": 1,
+      "mouthMask": 4
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "D": "#3C2018",
+      "H": "#38241A",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "d": "#784031",
+      "h": "#5C4030",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "H": "#38241A",
+      "O": "#000000",
+      "d": "#784031",
+      "h": "#5C4030"
+     },
+     "identityNote": "棕发(H主/h左上受光, 前额高发际线保留肤色)+棕框眼镜(O瞳孔,W镜片)+微笑稳重嘴"
+    },
+    "R": {
+     "w": 55,
+     "h": 42,
+     "root": [
+      32,
+      41
+     ],
+     "visibleBBox": [
+      1,
+      0,
+      54,
+      41
+     ],
+     "rows": [
+      "...........dddddddd..OOOOOOdDOOdDOOOOOOOOO.............",
+      "..........OdSSSSSSSDOOhhhhhHHHHHHHHHHHHHHOOO...........",
+      ".........DOdSdDdSSSDOhhhHHHHHHHHHHHHHHHHHHHO...........",
+      "........OOOdSdOdSSSDOhhHHHHHHHHHHHHHHHHHHHHO...........",
+      ".......DsssdDOOdSSSDOHHHHHHSSssSssHHHHHHHHHO...........",
+      "......ODSSSsssssSSSDOOOSSsdDdSSSSSdOOOOOOOOO...........",
+      "......ODSSSSSSSSSSSDOOOSSSsODSSSSSdOOOOOOOOO...........",
+      "........ODSSSSSSSSSDOOOOOSSSSSSSdOsHHHSSDOOO...........",
+      "........ODSSSSSSSSSDOOOOOSSSSSSSdOsHWHSSDOOO...........",
+      "..........OOOdSSSSSSSOOWHODSSSdOsHWWOHSSDOOO...........",
+      "............OdSSSSSSS..WHODSSSdOsHWWOHSSDOSS...........",
+      ".............dssSSSSS..WHDddddsDsHHHHHSSdDSS...........",
+      "..............OdSSSSSOOSSSSSSSSSSSSSSSSSSSSSO..........",
+      "...............dsSSSSOOSSSSSSsssssssSSSSssssOD.........",
+      "................OsSssOOSSsssdOOOOOOOsSSSDOOODDDDDDD....",
+      "................OsSDOOOSSOOOOOOOOOOOsSSSDOOOSSSSSSSdO..",
+      ".................ddOOOOSSOOOOOOOOOOOsSddssOOSSSSSSSsdd.",
+      "..................OOOOOSSOOOOOOOOOOOsSDOWWOOSSSSSSSSSdO",
+      ".................OOdsssdddddddddddddddssWWOOSSSSSSSSSsd",
+      ".O......dddddddDOOOWWWWssdddddddddddOOWWWWOOSSSsddSSSSS",
+      ".OOOOOODSSSSSSSdOOOWWWWWWOOOOOOOOOOOOOWWWWOOSSSsODSSSSS",
+      ".OOOssssSSSSSSSssDODDWWWWWsODsssssDOsWWWWWOOSsDDssSSSSS",
+      ".OOOSSSSSSSSSSSSSDOOOWWWWWWODSSSSSdOWWWWWWOOSsODSSSSSSS",
+      ".OOOSSSSSSSSSSSSSssDODDWWWWWsDDDDDsWWWWWdDOODDsdDDDdSSS",
+      ".OOOSSSSSSSSSSSSSSSDOOODDWWWWWWWWWWWWWWWDOssODSsODssSSS",
+      ".OOOSSSSSSSSSSSSSSSDOOOOOWWWWWWWWWWWWWWWDOSSODSsODSSSSS",
+      "..OOODSSSSSSSSSSSSSDOOOOOOOODWWWWWWWWWDOOOOOOOOOODSSSSS",
+      "..OOODSSSSSSSSSSSSSDOOOOOOOODWWWWWWWWW...OOOOOOOODSSSSS",
+      "..OOODSSSSSSSSSSSSSDOOOOOOOOOOOOOOOOOO........OOODSSSSS",
+      "..OOODssSSSsssSSSssDOOOOOOOOOOOOOOOOOO........OOODSSSSS",
+      "....OOODsssDODsssDOOOOOOOOOOOOOOOOOOOO........OOODsssss",
+      "....OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO..........OOOOOOO",
+      ".....................OOOOOOOOOOOODDDOO.................",
+      ".....................OOOOOOOOOOOdSSSDO.................",
+      ".......................OOdddddddsSSSdd.................",
+      ".......................OOSSSSSSSSSSSSS.................",
+      ".......................OOSSSSSSSSSSSSS.................",
+      ".........................ddSSSSSSSSSSS.................",
+      ".........................ODSSSSSSSSSSS.................",
+      "...........................DdSSSSSSSdD.................",
+      ".............................DDDDDDD...................",
+      ".............................OOOOOOO..................."
+     ],
+     "contentSha256": "fc367df6c2f971572e658b6224092d487d936d5c30de476a22a2efcf4610752b",
+     "changedPixels": [
+      [
+       21,
+       2
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       21,
+       4
+      ],
+      [
+       22,
+       1
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       22,
+       4
+      ],
+      [
+       23,
+       1
+      ],
+      [
+       23,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       23,
+       4
+      ],
+      [
+       24,
+       1
+      ],
+      [
+       24,
+       2
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       24,
+       4
+      ],
+      [
+       24,
+       9
+      ],
+      [
+       24,
+       10
+      ],
+      [
+       24,
+       11
+      ],
+      [
+       25,
+       1
+      ],
+      [
+       25,
+       2
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       25,
+       4
+      ],
+      [
+       26,
+       1
+      ],
+      [
+       26,
+       2
+      ],
+      [
+       26,
+       3
+      ],
+      [
+       26,
+       4
+      ],
+      [
+       27,
+       1
+      ],
+      [
+       27,
+       2
+      ],
+      [
+       27,
+       3
+      ],
+      [
+       27,
+       11
+      ],
+      [
+       28,
+       1
+      ],
+      [
+       28,
+       2
+      ],
+      [
+       28,
+       3
+      ],
+      [
+       28,
+       11
+      ],
+      [
+       29,
+       1
+      ],
+      [
+       29,
+       2
+      ],
+      [
+       29,
+       3
+      ],
+      [
+       29,
+       11
+      ],
+      [
+       30,
+       1
+      ],
+      [
+       30,
+       2
+      ],
+      [
+       30,
+       3
+      ],
+      [
+       30,
+       9
+      ],
+      [
+       30,
+       10
+      ],
+      [
+       31,
+       1
+      ],
+      [
+       31,
+       2
+      ],
+      [
+       31,
+       3
+      ],
+      [
+       32,
+       1
+      ],
+      [
+       32,
+       2
+      ],
+      [
+       32,
+       3
+      ],
+      [
+       33,
+       1
+      ],
+      [
+       33,
+       2
+      ],
+      [
+       33,
+       3
+      ],
+      [
+       33,
+       9
+      ],
+      [
+       33,
+       10
+      ],
+      [
+       33,
+       11
+      ],
+      [
+       34,
+       1
+      ],
+      [
+       34,
+       2
+      ],
+      [
+       34,
+       3
+      ],
+      [
+       34,
+       4
+      ],
+      [
+       34,
+       11
+      ],
+      [
+       35,
+       1
+      ],
+      [
+       35,
+       2
+      ],
+      [
+       35,
+       3
+      ],
+      [
+       35,
+       4
+      ],
+      [
+       35,
+       7
+      ],
+      [
+       35,
+       8
+      ],
+      [
+       35,
+       11
+      ],
+      [
+       36,
+       1
+      ],
+      [
+       36,
+       2
+      ],
+      [
+       36,
+       3
+      ],
+      [
+       36,
+       4
+      ],
+      [
+       36,
+       7
+      ],
+      [
+       36,
+       9
+      ],
+      [
+       36,
+       10
+      ],
+      [
+       36,
+       11
+      ],
+      [
+       37,
+       1
+      ],
+      [
+       37,
+       2
+      ],
+      [
+       37,
+       3
+      ],
+      [
+       37,
+       4
+      ],
+      [
+       37,
+       7
+      ],
+      [
+       37,
+       8
+      ],
+      [
+       37,
+       9
+      ],
+      [
+       37,
+       10
+      ],
+      [
+       37,
+       11
+      ],
+      [
+       38,
+       1
+      ],
+      [
+       38,
+       2
+      ],
+      [
+       38,
+       3
+      ],
+      [
+       38,
+       4
+      ],
+      [
+       39,
+       1
+      ],
+      [
+       39,
+       2
+      ],
+      [
+       39,
+       3
+      ],
+      [
+       39,
+       4
+      ],
+      [
+       40,
+       1
+      ],
+      [
+       40,
+       2
+      ],
+      [
+       40,
+       3
+      ],
+      [
+       40,
+       4
+      ],
+      [
+       41,
+       2
+      ],
+      [
+       41,
+       3
+      ],
+      [
+       41,
+       4
+      ],
+      [
+       42,
+       2
+      ],
+      [
+       42,
+       3
+      ],
+      [
+       42,
+       4
+      ]
+     ],
+     "changedPixelsTotal": 102,
+     "submaskChanges": {
+      "hairOrCapMask": 78,
+      "eyesOrGlassesMask": 19,
+      "faceDetailMask": 1,
+      "mouthMask": 4
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "D": "#3C2018",
+      "H": "#38241A",
+      "O": "#000000",
+      "S": "#F18162",
+      "W": "#F1F2F1",
+      "d": "#784031",
+      "h": "#5C4030",
+      "s": "#B46049"
+     },
+     "colorsUsedInChangedPixels": {
+      "H": "#38241A",
+      "O": "#000000",
+      "d": "#784031",
+      "h": "#5C4030"
+     },
+     "identityNote": "棕发(H主/h左上受光, 前额高发际线保留肤色)+棕框眼镜(O瞳孔,W镜片)+微笑稳重嘴"
+    }
+   }
+  },
+  "UW_NORMAL": {
+   "yy": {
+    "L": {
+     "w": 39,
+     "h": 21,
+     "root": [
+      20,
+      11
+     ],
+     "visibleBBox": [
+      1,
+      1,
+      37,
+      19
+     ],
+     "rows": [
+      ".......................................",
+      "...............umuumu..................",
+      "............uuuullmmu..................",
+      "............uulmmmmumuu................",
+      "............umuummmmmmu................",
+      "............ummmuummmmu................",
+      "............ummmuummmmuuuuu............",
+      "............umuummmuumllwlmuuuuuuuuuu..",
+      "............mluummmumulwllmuuummmmmmu..",
+      "............mluummmumullulmuummmmmmmmm.",
+      ".........uuumluummmummmmlmmuummmmmmmmm.",
+      "......uuummuummmmmmmmmmmuuummmmmmmmmmm.",
+      "......mmmmmuummmmmmmmmmmuuummmmmmmmmmm.",
+      "...mmmmmmmmuummmmmmmmmuummmmmmmmmmmmmm.",
+      ".uummmmmummuumuuuuuummuuummmmmmmmmmmmu.",
+      ".ummmmmmuuuuuuuuuuuummuuummmmmmmmuuuu..",
+      ".ummmmmmmu....mmmmmmmmuummmmmmmmmu.....",
+      ".ummmmmmmmm............ummmmmmmmmu.....",
+      ".ummmmmmuuu............uummmmmmmuu.....",
+      ".uuuuuuu.................uuuuuuu.......",
+      "......................................."
+     ],
+     "contentSha256": "e582aeed597aea02b3aa592abafb30af1b73a7599929101ef91fcd3367734fbe",
+     "changedPixels": [
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       14,
+       3
+      ],
+      [
+       15,
+       3
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       17,
+       2
+      ],
+      [
+       18,
+       2
+      ],
+      [
+       18,
+       3
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       21,
+       8
+      ],
+      [
+       21,
+       9
+      ],
+      [
+       21,
+       10
+      ],
+      [
+       22,
+       8
+      ],
+      [
+       22,
+       9
+      ],
+      [
+       22,
+       10
+      ],
+      [
+       23,
+       7
+      ],
+      [
+       23,
+       9
+      ],
+      [
+       23,
+       10
+      ],
+      [
+       24,
+       8
+      ],
+      [
+       24,
+       9
+      ]
+     ],
+     "changedPixelsTotal": 21,
+     "submaskChanges": {
+      "hairOrCapMask": 8,
+      "eyesOrGlassesMask": 10,
+      "faceDetailMask": 0,
+      "mouthMask": 3
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "l": "#A4E4FC",
+      "m": "#3CBCFC",
+      "u": "#004058",
+      "w": "#FCFCFC"
+     },
+     "colorsUsedInChangedPixels": {
+      "l": "#A4E4FC",
+      "m": "#3CBCFC",
+      "u": "#004058"
+     },
+     "identityNote": "水下泳帽m主色+l左上高光+u后缘深部; 泳镜u框+l镜片+w高光+脑后镜带端; 简洁m嘴线"
+    },
+    "R": {
+     "w": 39,
+     "h": 21,
+     "root": [
+      18,
+      11
+     ],
+     "visibleBBox": [
+      1,
+      1,
+      37,
+      19
+     ],
+     "rows": [
+      ".......................................",
+      "..................umuumu...............",
+      "..................ullmmuuuu............",
+      "................uumulmmmmuu............",
+      "................ummmmmmuumu............",
+      "................ummmmuummmu............",
+      "............uuuuummmmuummmu............",
+      "..uuuuuuuuuumlwllmuummmuumu............",
+      "..ummmmmmuuumllwlumummmuulm............",
+      ".mmmmmmmmmuumlullumummmuulm............",
+      ".mmmmmmmmmuummlmmmmummmuulmuuu.........",
+      ".mmmmmmmmmmmuuummmmmmmmmmmuummuuu......",
+      ".mmmmmmmmmmmuuummmmmmmmmmmuummmmm......",
+      ".mmmmmmmmmmmmmmuummmmmmmmmuummmmmmmm...",
+      ".ummmmmmmmmmmmuuummuuuuuumuummummmmmuu.",
+      "..uuuummmmmmmmuuummuuuuuuuuuuuummmmmmu.",
+      ".....ummmmmmmmmuummmmmmmm....ummmmmmmu.",
+      ".....ummmmmmmmmu............mmmmmmmmmu.",
+      ".....uummmmmmmuu............uuummmmmmu.",
+      ".......uuuuuuu.................uuuuuuu.",
+      "......................................."
+     ],
+     "contentSha256": "6213f4735ad083e67222288e89aa22d199da6bab2f367e1e3b9d7bde405ed7e7",
+     "changedPixels": [
+      [
+       14,
+       8
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       15,
+       10
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       16,
+       9
+      ],
+      [
+       16,
+       10
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       17,
+       10
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       20,
+       2
+      ],
+      [
+       20,
+       3
+      ],
+      [
+       21,
+       2
+      ],
+      [
+       23,
+       3
+      ],
+      [
+       24,
+       3
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       25,
+       8
+      ],
+      [
+       25,
+       9
+      ]
+     ],
+     "changedPixelsTotal": 21,
+     "submaskChanges": {
+      "hairOrCapMask": 8,
+      "eyesOrGlassesMask": 10,
+      "faceDetailMask": 0,
+      "mouthMask": 3
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "l": "#A4E4FC",
+      "m": "#3CBCFC",
+      "u": "#004058",
+      "w": "#FCFCFC"
+     },
+     "colorsUsedInChangedPixels": {
+      "l": "#A4E4FC",
+      "m": "#3CBCFC",
+      "u": "#004058"
+     },
+     "identityNote": "水下泳帽m主色+l左上高光+u后缘深部; 泳镜u框+l镜片+w高光+脑后镜带端; 简洁m嘴线"
+    }
+   },
+   "dd": {
+    "L": {
+     "w": 39,
+     "h": 21,
+     "root": [
+      20,
+      11
+     ],
+     "visibleBBox": [
+      1,
+      1,
+      37,
+      19
+     ],
+     "rows": [
+      ".......................................",
+      "...............umuumu..................",
+      "............uuuuluuuu..................",
+      "............uuuuuuuumuu................",
+      "............umuummmmmmu................",
+      "............ummmuummmmu................",
+      "............ummmuummmmuuuuu............",
+      "............umuummmuumllwlmuuuuuuuuuu..",
+      "............muuumumumuluulmuuummmmmmu..",
+      "............muuumumumuuwulmuummmmmmmmm.",
+      ".........uuumluummmumulllmmuummmmmmmmm.",
+      "......uuummuummmmmmmmmmmuuummmmmmmmmmm.",
+      "......mmmmmuummmmmmmmmmmuuummmmmmmmmmm.",
+      "...mmmmmmmmuummmmmmmmmuummmmmmmmmmmmmm.",
+      ".uummmmmummuumuuuuuummuuummmmmmmmmmmmu.",
+      ".ummmmmmuuuuuuuuuuuummuuummmmmmmmuuuu..",
+      ".ummmmmmmu....mmmmmmmmuummmmmmmmmu.....",
+      ".ummmmmmmmm............ummmmmmmmmu.....",
+      ".ummmmmmuuu............uummmmmmmuu.....",
+      ".uuuuuuu.................uuuuuuu.......",
+      "......................................."
+     ],
+     "contentSha256": "3e80be4c2fddf29f0b7e25b915a3c81a7e769aeaa66b9500c93922326f979b03",
+     "changedPixels": [
+      [
+       13,
+       3
+      ],
+      [
+       13,
+       8
+      ],
+      [
+       13,
+       9
+      ],
+      [
+       16,
+       2
+      ],
+      [
+       16,
+       3
+      ],
+      [
+       17,
+       3
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       21,
+       8
+      ],
+      [
+       21,
+       9
+      ],
+      [
+       21,
+       10
+      ],
+      [
+       22,
+       8
+      ],
+      [
+       22,
+       9
+      ],
+      [
+       23,
+       7
+      ],
+      [
+       23,
+       8
+      ],
+      [
+       24,
+       8
+      ],
+      [
+       24,
+       9
+      ]
+     ],
+     "changedPixelsTotal": 19,
+     "submaskChanges": {
+      "hairOrCapMask": 6,
+      "eyesOrGlassesMask": 10,
+      "faceDetailMask": 2,
+      "mouthMask": 1
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "l": "#A4E4FC",
+      "m": "#3CBCFC",
+      "u": "#004058",
+      "w": "#FCFCFC"
+     },
+     "colorsUsedInChangedPixels": {
+      "l": "#A4E4FC",
+      "u": "#004058"
+     },
+     "identityNote": "水下头发u主色+顶缘l单点反光; 眼镜u框/镜腿+l/w镜片反光; 稳重u嘴角"
+    },
+    "R": {
+     "w": 39,
+     "h": 21,
+     "root": [
+      18,
+      11
+     ],
+     "visibleBBox": [
+      1,
+      1,
+      37,
+      19
+     ],
+     "rows": [
+      ".......................................",
+      "..................umuumu...............",
+      "..................uluuuuuuu............",
+      "................uumuuuuuuuu............",
+      "................ummmmmmuumu............",
+      "................ummmmuummmu............",
+      "............uuuuummmmuummmu............",
+      "..uuuuuuuuuumlwllmuummmuumu............",
+      "..ummmmmmuuumluulumumumuuum............",
+      ".mmmmmmmmmuumluuwumumumuuum............",
+      ".mmmmmmmmmuummlllumummmuulmuuu.........",
+      ".mmmmmmmmmmmuuummmmmmmmmmmuummuuu......",
+      ".mmmmmmmmmmmuuummmmmmmmmmmuummmmm......",
+      ".mmmmmmmmmmmmmmuummmmmmmmmuummmmmmmm...",
+      ".ummmmmmmmmmmmuuummuuuuuumuummummmmmuu.",
+      "..uuuummmmmmmmuuummuuuuuuuuuuuummmmmmu.",
+      ".....ummmmmmmmmuummmmmmmm....ummmmmmmu.",
+      ".....ummmmmmmmmu............mmmmmmmmmu.",
+      ".....uummmmmmmuu............uuummmmmmu.",
+      ".......uuuuuuu.................uuuuuuu.",
+      "......................................."
+     ],
+     "contentSha256": "354348d41a1b5d6ecf8cc8d3a8b77ea3e0201d2edd8ddca48d4b19d5a21afb29",
+     "changedPixels": [
+      [
+       14,
+       8
+      ],
+      [
+       14,
+       9
+      ],
+      [
+       15,
+       7
+      ],
+      [
+       15,
+       8
+      ],
+      [
+       15,
+       9
+      ],
+      [
+       16,
+       8
+      ],
+      [
+       17,
+       8
+      ],
+      [
+       17,
+       9
+      ],
+      [
+       17,
+       10
+      ],
+      [
+       19,
+       2
+      ],
+      [
+       19,
+       3
+      ],
+      [
+       21,
+       3
+      ],
+      [
+       21,
+       8
+      ],
+      [
+       21,
+       9
+      ],
+      [
+       22,
+       2
+      ],
+      [
+       22,
+       3
+      ],
+      [
+       25,
+       3
+      ],
+      [
+       25,
+       8
+      ],
+      [
+       25,
+       9
+      ]
+     ],
+     "changedPixelsTotal": 19,
+     "submaskChanges": {
+      "hairOrCapMask": 6,
+      "eyesOrGlassesMask": 10,
+      "faceDetailMask": 2,
+      "mouthMask": 1
+     },
+     "outsideDiff": 0,
+     "alphaDiff": 0,
+     "forbiddenBodyDiff": 0,
+     "colorsUsed": {
+      "l": "#A4E4FC",
+      "m": "#3CBCFC",
+      "u": "#004058",
+      "w": "#FCFCFC"
+     },
+     "colorsUsedInChangedPixels": {
+      "l": "#A4E4FC",
+      "u": "#004058"
+     },
+     "identityNote": "水下头发u主色+顶缘l单点反光; 眼镜u框/镜腿+l/w镜片反光; 稳重u嘴角"
+    }
+   }
+  }
+ }
+}

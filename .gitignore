@@ -24,3 +24,59 @@ IMG_0806.jpeg
 过程文件/Kimi开发/阶段2头像预览-本地含照片.png
 过程文件/Kimi开发/yy_24.png
 过程文件/Kimi开发/dd_24.png
+过程文件/Kimi开发/.venv/
+# 阶段 R3B-I 肖像方向概念图：含家庭外貌特征，只作本地绘制参考
+过程文件/Kimi开发/R3B-I-LikenessTest/阳阳爸爸头像方向参考-本地勿提交.png
+# Codex概念动作参考：含家庭外貌特征，仅本地查看；代码产物不依赖
+过程文件/Codex开发/R3B-I-P2/阳阳爸爸多动作概念参考-本地勿提交.png
+
+# 阶段3动作分析中间文件(可由原版录像再生成)
+过程文件/Kimi开发/action_scan/
+过程文件/Kimi开发/redtrack.csv
+过程文件/Kimi开发/scan_a.png
+过程文件/Kimi开发/scan_b.png
+过程文件/Kimi开发/jump_scan.png
+过程文件/Kimi开发/ref_frames_sheet.png
+过程文件/Kimi开发/avatar_baked.js
+过程文件/Kimi开发/st3_shots/
+# 阶段3 R3/R4: 精灵生成物与中间预览(可再生成); build_sprites.py 为最终生成与验证源代码, 不忽略
+过程文件/Kimi开发/sprites_baked.js
+过程文件/Kimi开发/sprites_preview.png
+过程文件/Kimi开发/sprites_breath_preview.png
+过程文件/Kimi开发/jump_frames.png
+# 阶段3 历史迁移脚本(一次性迁移工具, 需中间备份作输入, 无法从1a01918基线一次生成 → 按R6指令保留本地不进入Git)
+过程文件/Kimi开发/migrate_r3.py
+过程文件/Kimi开发/migrate_r4.py
+过程文件/Kimi开发/migrate_r5.py
+过程文件/Kimi开发/migrate_r6.py
+# 阶段3 一次性调查工具(换气/Oxy扫描, 与交付无关, 保留本地不进入Git)
+过程文件/Kimi开发/oxy_scan.py
+# 阶段3 验收截图拍摄工具(本地工具, 不进入Git)
+过程文件/Kimi开发/shoot_r6.py
+# 阶段3 作废证据条(两名角色重叠或测量作废, 保留本地不进入Git)
+过程文件/Kimi开发/阶段3证据-下潜上浮-f12533.png
+过程文件/Kimi开发/阶段3证据-下潜细节-f15610.png
+过程文件/Kimi开发/阶段3证据-上浮细节-f15560.png
+过程文件/Kimi开发/阶段3证据-换气-f16044.png
+# 阶段3A 精灵生成物(可由 build_sprites_3a.py 再生成)
+过程文件/Kimi开发/sprites_3a_baked.js
+
+# FORK-0-R1 补充：可再生成中间产物与原版参考帧（逐项核验后追加）
+过程文件/Kimi开发/R3B-I/diff/
+过程文件/Kimi开发/R3B-I/identity_sprites_r3bi_baked.js
+过程文件/Kimi开发/R3B-I-P1/diff/
+过程文件/Kimi开发/R3B-I-P1/masks/
+过程文件/Kimi开发/阶段3/s*.png
+过程文件/Kimi开发/阶段3/z_*.png
+过程文件/Kimi开发/阶段3A0参考/
+过程文件/Kimi开发/sprites_3a0_baked.js
+
+# FORK-0-R2 补充：含原版游戏画面的证据图与审核表，只留本地（Codex review 要求）
+过程文件/Kimi开发/阶段3证据-下潜-f15615-f15620.png
+过程文件/Kimi开发/阶段3证据-换气-f16044-f16066.png
+过程文件/Kimi开发/阶段3证据-水下方向-f15554-f15680.png
+过程文件/Kimi开发/阶段3证据-跳跃-官方截图.png
+过程文件/Kimi开发/阶段3A0精灵审核表-1.png
+过程文件/Kimi开发/阶段3A0精灵审核表-2.png
+过程文件/Kimi开发/阶段3A精灵审核表-1.png
+过程文件/Kimi开发/阶段3A精灵审核表-2.png

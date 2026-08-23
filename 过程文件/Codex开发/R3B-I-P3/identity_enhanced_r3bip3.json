@@ -1,0 +1,245 @@
+{
+  "meta": {
+    "stage": "R3B-I-P3",
+    "status": "prototype-not-integrated",
+    "source": "过程文件/Kimi开发/R3B-I/identity_sprites_r3bi.json",
+    "sourceSha256": "c1da15bb33b72322ff638c4d84ad8257a9223e18bdcd396728464c8e14434839",
+    "contract": "same w/h/root/visibleBBox/opaque-pixel set; face-color edits only"
+  },
+  "sprites": {
+    "SURF0": {
+      "yy": {
+        "L": {
+          "file": "sprites/SURF0_yy_L.png",
+          "w": 31,
+          "h": 21,
+          "root": [
+            15,
+            10
+          ],
+          "visibleBBox": [
+            0,
+            0,
+            30,
+            20
+          ],
+          "changedPixelCount": 8,
+          "contentSha256": "633d6940643bd764bb0bdf16f46de1d4c181b68c985f655c92b2aaf80e001b42",
+          "pngSha256": "842b8b717ff994f0f63ba74fc5565a73d5e2b717368fc01551a3369e4880dea8"
+        },
+        "R": {
+          "file": "sprites/SURF0_yy_R.png",
+          "w": 31,
+          "h": 21,
+          "root": [
+            15,
+            10
+          ],
+          "visibleBBox": [
+            0,
+            0,
+            30,
+            20
+          ],
+          "changedPixelCount": 10,
+          "contentSha256": "d7b86c28addd4fc6c96f3423cbf2694e95c01f39b81a68d3e56ef6903638b2a1",
+          "pngSha256": "084ed24d9fb26406bd0a1f74767cf61de105ffbcc61e1c1f9459c10665010577"
+        }
+      },
+      "dd": {
+        "L": {
+          "file": "sprites/SURF0_dd_L.png",
+          "w": 31,
+          "h": 21,
+          "root": [
+            15,
+            10
+          ],
+          "visibleBBox": [
+            0,
+            0,
+            30,
+            20
+          ],
+          "changedPixelCount": 20,
+          "contentSha256": "748f6f43b3b988d105baa385bc909a6cd6397ffc938c2a55628d9025529df538",
+          "pngSha256": "e781b5c2d2db46f7452d5abaa4ccccab5d7dd0c549d3a570e0b62d398956607b"
+        },
+        "R": {
+          "file": "sprites/SURF0_dd_R.png",
+          "w": 31,
+          "h": 21,
+          "root": [
+            15,
+            10
+          ],
+          "visibleBBox": [
+            0,
+            0,
+            30,
+            20
+          ],
+          "changedPixelCount": 20,
+          "contentSha256": "3ad071cf83443e9db93ab6b06ec1fdec43775159a0d8b1e98d26fc77c220aad4",
+          "pngSha256": "f4e79f1a95148ed3e2dc04b09681a2e0c8019e84d790d0eb6ed7e51879cad9b8"
+        }
+      }
+    },
+    "JUMP_AIR": {
+      "yy": {
+        "L": {
+          "file": "sprites/JUMP_AIR_yy_L.png",
+          "w": 55,
+          "h": 42,
+          "root": [
+            22,
+            41
+          ],
+          "visibleBBox": [
+            0,
+            0,
+            53,
+            41
+          ],
+          "changedPixelCount": 48,
+          "contentSha256": "f4952388efa3153b57777cafeb81990919267af3748e7b3d72132496ffea75b7",
+          "pngSha256": "e1f41e930efa53237e116476484a76253cde0a3036699467db29022418e727a5"
+        },
+        "R": {
+          "file": "sprites/JUMP_AIR_yy_R.png",
+          "w": 55,
+          "h": 42,
+          "root": [
+            32,
+            41
+          ],
+          "visibleBBox": [
+            1,
+            0,
+            54,
+            41
+          ],
+          "changedPixelCount": 48,
+          "contentSha256": "db54f82a9f4b162bc437b389d8ed1f0ca34c2d1fa26374081ac31df2c8ebfeb4",
+          "pngSha256": "bec304fee7d5e93505541a11758bfa4e0349ef62e4e3a11a00140a8de0c3f012"
+        }
+      },
+      "dd": {
+        "L": {
+          "file": "sprites/JUMP_AIR_dd_L.png",
+          "w": 55,
+          "h": 42,
+          "root": [
+            22,
+            41
+          ],
+          "visibleBBox": [
+            0,
+            0,
+            53,
+            41
+          ],
+          "changedPixelCount": 31,
+          "contentSha256": "b8912cd18eb3d7e5a6a04e62fdb922c449699f12a01378de300cbb22ff3a04a6",
+          "pngSha256": "ddf796916bcf9d43dc2402da7a5f9a07aeb3b07c4bcd8d49f75ea3e1207d0630"
+        },
+        "R": {
+          "file": "sprites/JUMP_AIR_dd_R.png",
+          "w": 55,
+          "h": 42,
+          "root": [
+            32,
+            41
+          ],
+          "visibleBBox": [
+            1,
+            0,
+            54,
+            41
+          ],
+          "changedPixelCount": 31,
+          "contentSha256": "abe932a4c91aa1bdffe158ad5b4cce2e92b966014ac94a0fc680be1c8099ab6f",
+          "pngSha256": "2583e1d4ff95fa85f1bde214eace74c1fa53e55261108492feab96f63c17f902"
+        }
+      }
+    },
+    "UW_NORMAL": {
+      "yy": {
+        "L": {
+          "file": "sprites/UW_NORMAL_yy_L.png",
+          "w": 39,
+          "h": 21,
+          "root": [
+            20,
+            11
+          ],
+          "visibleBBox": [
+            1,
+            1,
+            37,
+            19
+          ],
+          "changedPixelCount": 9,
+          "contentSha256": "5828acdc927b1cc1437f6614b1ccc2a33fd7868aef38ee116c83e349025beb5f",
+          "pngSha256": "51e3c03d19b37135626ae057eea016862e0760252d3d3e79805fa126e32ffbe6"
+        },
+        "R": {
+          "file": "sprites/UW_NORMAL_yy_R.png",
+          "w": 39,
+          "h": 21,
+          "root": [
+            18,
+            11
+          ],
+          "visibleBBox": [
+            1,
+            1,
+            37,
+            19
+          ],
+          "changedPixelCount": 9,
+          "contentSha256": "c554d13c43aa1118218444d1ddfe8b239ac2f34cb620153e859b693769b18531",
+          "pngSha256": "7abb5dec8e6149441d9a454545e6bbb2be1663803f84ba72ded0a3ffbc4d77a0"
+        }
+      },
+      "dd": {
+        "L": {
+          "file": "sprites/UW_NORMAL_dd_L.png",
+          "w": 39,
+          "h": 21,
+          "root": [
+            20,
+            11
+          ],
+          "visibleBBox": [
+            1,
+            1,
+            37,
+            19
+          ],
+          "changedPixelCount": 12,
+          "contentSha256": "8faafa2cbb268abc2f91ebad9f0090c02ac57c038161e5f174fbe6d38b1c7ffe",
+          "pngSha256": "18648840d7782f1ff9282ca029ef7c8728e66795dfc7ba97bc168c3444ec0bda"
+        },
+        "R": {
+          "file": "sprites/UW_NORMAL_dd_R.png",
+          "w": 39,
+          "h": 21,
+          "root": [
+            18,
+            11
+          ],
+          "visibleBBox": [
+            1,
+            1,
+            37,
+            19
+          ],
+          "changedPixelCount": 10,
+          "contentSha256": "748b10f8b501ed635ea313393dd255fa87709f3f752d116b8a1ebe0003898f10",
+          "pngSha256": "20d570d9162ab1275e5b365c34330971027482a68a9b383258ae842f0ff5929e"
+        }
+      }
+    }
+  }
+}
