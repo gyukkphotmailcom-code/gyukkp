@@ -1,0 +1,698 @@
+{
+  "applied": false,
+  "artifactKind": "concept-style-static-sprites",
+  "blindAnswer": {
+    "keyOfIndex": [
+      "yy_SURF_SWIM_L",
+      "yy_SURF_SWIM_R",
+      "yy_JUMP_L",
+      "yy_UW_SWIM_L",
+      "yy_UW_SWIM_R",
+      "yy_ATTACK_L",
+      "yy_ATTACK_R",
+      "yy_HIT_L",
+      "yy_BREATH_L",
+      "dd_SURF_SWIM_L",
+      "dd_SURF_SWIM_R",
+      "dd_JUMP_L",
+      "dd_UW_SWIM_L",
+      "dd_UW_SWIM_R",
+      "dd_ATTACK_L",
+      "dd_ATTACK_R",
+      "dd_HIT_L",
+      "dd_BREATH_L"
+    ],
+    "note": "#NN 对应 entries[order[NN-1]]",
+    "order": [
+      5,
+      11,
+      0,
+      8,
+      14,
+      2,
+      17,
+      6,
+      9,
+      13,
+      1,
+      16,
+      4,
+      10,
+      7,
+      15,
+      3,
+      12
+    ]
+  },
+  "checks": {
+    "alphaBinary": {
+      "note": "全部输出逐像素检查alpha∈{0,255}",
+      "pass": true
+    },
+    "cellSize": {
+      "fail": [],
+      "pass": true,
+      "rule": "横向112/128宽；其余96x96"
+    },
+    "headMinSize": {
+      "fail": [],
+      "pass": true,
+      "rule": "yy>=约24x24, dd>=约28x28（容差2px）"
+    },
+    "mainHtmlUnchanged": {
+      "pass": true,
+      "sha256": "412416e95bfe4c98f4b039dc4a24fd9b28c2c23989254f22ee494d2e7bcde306"
+    }
+  },
+  "designHeight": {
+    "dd": 78,
+    "yy": 66
+  },
+  "note": "静态美术门；不接入正式游戏HTML",
+  "schemaVersion": 1,
+  "sheets": [
+    {
+      "file": "阳阳静态动作表.png",
+      "sha256": "69343cb5b4fbf5c64a72dfee7728f80c8878bfa9b14d4375463126136fe2dc3f",
+      "size": [
+        490,
+        1290
+      ]
+    },
+    {
+      "file": "爸爸静态动作表.png",
+      "sha256": "f1c4894502c71daafa77e84a0364690c4a234f3d0a18922f8503323c99e7be69",
+      "size": [
+        520,
+        1290
+      ]
+    },
+    {
+      "file": "双角色1x盲审表.png",
+      "sha256": "b488d013c2123513f801186b7432ed97fb0a977200b0930c2cdbb2b7461da3c6",
+      "size": [
+        1280,
+        2790
+      ]
+    },
+    {
+      "file": "双角色放大验收表.png",
+      "sha256": "34e1aeb69934fcb3f3ae64e840df1287b7766bc7a27c668ce2470fd74baa1161",
+      "size": [
+        640,
+        3750
+      ]
+    },
+    {
+      "file": "游戏观感静态小样.png",
+      "sha256": "48b869c1efe762ee9cbbfd23cc30e7a5de1f1d428c9e8903af13f83f84fb807d",
+      "size": [
+        512,
+        448
+      ]
+    }
+  ],
+  "sprites": [
+    {
+      "cell": [
+        112,
+        56
+      ],
+      "char": "yy",
+      "dir": "L",
+      "file": "sprites/yy_SURF_SWIM_L.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "surface",
+      "pose": "SURF_SWIM",
+      "sha256": "d0ffc9b9504a1364dfafcb41869828515b9e4570c43b95c461d1052dbc58ea09"
+    },
+    {
+      "cell": [
+        112,
+        56
+      ],
+      "char": "yy",
+      "dir": "R",
+      "file": "sprites/yy_SURF_SWIM_R.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "surface",
+      "pose": "SURF_SWIM",
+      "sha256": "2a793330356c22beb8297564caaf794ce23f61144fcb2be9b8a25d200d06ca68"
+    },
+    {
+      "cell": [
+        96,
+        96
+      ],
+      "char": "yy",
+      "dir": "L",
+      "file": "sprites/yy_JUMP_L.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "surface",
+      "pose": "JUMP",
+      "sha256": "d24e4358febfd3076f2657f5711141c0a171f07031f5835f84d7f0b5ce7903be"
+    },
+    {
+      "cell": [
+        128,
+        56
+      ],
+      "char": "yy",
+      "dir": "L",
+      "file": "sprites/yy_UW_SWIM_L.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "underwater",
+      "pose": "UW_SWIM",
+      "sha256": "7d77b5aa14280d4a5f7892d4cce1f8976d750d042aa3a771ba8bba6089099bdb"
+    },
+    {
+      "cell": [
+        128,
+        56
+      ],
+      "char": "yy",
+      "dir": "R",
+      "file": "sprites/yy_UW_SWIM_R.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "underwater",
+      "pose": "UW_SWIM",
+      "sha256": "dad8e92c5b4393d52d272463e326a8e451064799218579004a366f05ee0a5a98"
+    },
+    {
+      "cell": [
+        112,
+        72
+      ],
+      "char": "yy",
+      "dir": "L",
+      "file": "sprites/yy_ATTACK_L.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "underwater",
+      "pose": "ATTACK",
+      "sha256": "0b00e079a3f140c08f3f80e06cb89f37cccc61cefd09f300dd1dc28dc6fb8416"
+    },
+    {
+      "cell": [
+        112,
+        72
+      ],
+      "char": "yy",
+      "dir": "R",
+      "file": "sprites/yy_ATTACK_R.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "underwater",
+      "pose": "ATTACK",
+      "sha256": "006e24f602e8ad82fce24643345357eab735eb65d79c55f5e2e2ef0a54beb4c0"
+    },
+    {
+      "cell": [
+        96,
+        96
+      ],
+      "char": "yy",
+      "dir": "L",
+      "file": "sprites/yy_HIT_L.png",
+      "head": [
+        25,
+        27
+      ],
+      "palette": "underwater",
+      "pose": "HIT",
+      "sha256": "1b1acb9d700974fc80e31fd43c48317bd3ececee2c583258c6be541c11d2e38b"
+    },
+    {
+      "cell": [
+        96,
+        96
+      ],
+      "char": "yy",
+      "dir": "L",
+      "file": "sprites/yy_BREATH_L.png",
+      "head": [
+        28,
+        27
+      ],
+      "palette": "surface",
+      "pose": "BREATH",
+      "sha256": "126fde05433998c24bd30f6ab1172578ff4d28905512765e799f843445a21524"
+    },
+    {
+      "cell": [
+        128,
+        64
+      ],
+      "char": "dd",
+      "dir": "L",
+      "file": "sprites/dd_SURF_SWIM_L.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "surface",
+      "pose": "SURF_SWIM",
+      "sha256": "d223f966c49156f869d754aebc31f8ffbbf4977f07babf86ed1242bc47a71759"
+    },
+    {
+      "cell": [
+        128,
+        64
+      ],
+      "char": "dd",
+      "dir": "R",
+      "file": "sprites/dd_SURF_SWIM_R.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "surface",
+      "pose": "SURF_SWIM",
+      "sha256": "4059f3d8cc3da96340ddfcc6523d6459e44bb7a94ddfec0b1ca37d84a813a95e"
+    },
+    {
+      "cell": [
+        96,
+        96
+      ],
+      "char": "dd",
+      "dir": "L",
+      "file": "sprites/dd_JUMP_L.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "surface",
+      "pose": "JUMP",
+      "sha256": "97db1b7c08f31a2a9692326cbc21a96f1f0838e7323a69a20673e57d77738189"
+    },
+    {
+      "cell": [
+        128,
+        64
+      ],
+      "char": "dd",
+      "dir": "L",
+      "file": "sprites/dd_UW_SWIM_L.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "underwater",
+      "pose": "UW_SWIM",
+      "sha256": "1b8b8449d9d29c7ec509a60ea2cc1d73312f342b080297971bae413f91b62a00"
+    },
+    {
+      "cell": [
+        128,
+        64
+      ],
+      "char": "dd",
+      "dir": "R",
+      "file": "sprites/dd_UW_SWIM_R.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "underwater",
+      "pose": "UW_SWIM",
+      "sha256": "73e8a34b8da5d4636d4b0d9a970cb025e899ac43a8ad3a7c0cd2db9063828c21"
+    },
+    {
+      "cell": [
+        128,
+        80
+      ],
+      "char": "dd",
+      "dir": "L",
+      "file": "sprites/dd_ATTACK_L.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "underwater",
+      "pose": "ATTACK",
+      "sha256": "cd54de2932747f0b031b419be391fe251a34a2550376718131831ee4e95f4727"
+    },
+    {
+      "cell": [
+        128,
+        80
+      ],
+      "char": "dd",
+      "dir": "R",
+      "file": "sprites/dd_ATTACK_R.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "underwater",
+      "pose": "ATTACK",
+      "sha256": "b38d60f7ad8b50cddbbd61c1d8e44ae94da50d78e349af5a3603d24df4c83a74"
+    },
+    {
+      "cell": [
+        96,
+        96
+      ],
+      "char": "dd",
+      "dir": "L",
+      "file": "sprites/dd_HIT_L.png",
+      "head": [
+        28,
+        29
+      ],
+      "palette": "underwater",
+      "pose": "HIT",
+      "sha256": "a5550c0c902528a374f0621776969e9cdefa082527fab95e649df71c37abaa5d"
+    },
+    {
+      "cell": [
+        96,
+        96
+      ],
+      "char": "dd",
+      "dir": "L",
+      "file": "sprites/dd_BREATH_L.png",
+      "head": [
+        30,
+        29
+      ],
+      "palette": "surface",
+      "pose": "BREATH",
+      "sha256": "644395eabd608830727ed6491241e25b379046d784e418a18b3e18d83f0c416d"
+    }
+  ],
+  "stage": "CONCEPT-1A",
+  "surfacePalette": {
+    "BROW": [
+      62,
+      42,
+      32,
+      255
+    ],
+    "CAP": [
+      47,
+      125,
+      225,
+      255
+    ],
+    "CAP_D": [
+      30,
+      90,
+      168,
+      255
+    ],
+    "CAP_L": [
+      111,
+      179,
+      255,
+      255
+    ],
+    "GLS": [
+      16,
+      16,
+      24,
+      255
+    ],
+    "GLS_L": [
+      176,
+      208,
+      224,
+      255
+    ],
+    "GOG_F": [
+      232,
+      244,
+      255,
+      255
+    ],
+    "GOG_L": [
+      23,
+      59,
+      116,
+      255
+    ],
+    "HAIR": [
+      34,
+      28,
+      32,
+      255
+    ],
+    "HAIR_L": [
+      62,
+      52,
+      58,
+      255
+    ],
+    "INK": [
+      20,
+      20,
+      30,
+      255
+    ],
+    "MOUTH": [
+      128,
+      58,
+      48,
+      255
+    ],
+    "MOUTH_D": [
+      86,
+      34,
+      30,
+      255
+    ],
+    "OUT": [
+      26,
+      24,
+      44,
+      255
+    ],
+    "SKIN": [
+      244,
+      186,
+      136,
+      255
+    ],
+    "SKIND": [
+      236,
+      168,
+      118,
+      255
+    ],
+    "SKIND_SH": [
+      200,
+      128,
+      82,
+      255
+    ],
+    "SKIN_SH": [
+      222,
+      148,
+      98,
+      255
+    ],
+    "SUIT": [
+      43,
+      111,
+      212,
+      255
+    ],
+    "SUITD": [
+      44,
+      44,
+      56,
+      255
+    ],
+    "SUITD_L": [
+      66,
+      66,
+      82,
+      255
+    ],
+    "SUIT_D": [
+      28,
+      78,
+      158,
+      255
+    ],
+    "WAT": [
+      110,
+      190,
+      236,
+      255
+    ],
+    "WAT_D": [
+      62,
+      142,
+      200,
+      255
+    ],
+    "WAT_L": [
+      214,
+      242,
+      255,
+      255
+    ],
+    "WHT": [
+      255,
+      255,
+      255,
+      255
+    ]
+  },
+  "underwaterMapping": {
+    "[111, 179, 255, 255]": [
+      82,
+      152,
+      206,
+      255
+    ],
+    "[128, 58, 48, 255]": [
+      96,
+      60,
+      64,
+      255
+    ],
+    "[16, 16, 24, 255]": [
+      12,
+      16,
+      24,
+      255
+    ],
+    "[176, 208, 224, 255]": [
+      118,
+      166,
+      190,
+      255
+    ],
+    "[20, 20, 30, 255]": [
+      14,
+      16,
+      26,
+      255
+    ],
+    "[200, 128, 82, 255]": [
+      100,
+      146,
+      160,
+      255
+    ],
+    "[222, 148, 98, 255]": [
+      108,
+      158,
+      172,
+      255
+    ],
+    "[23, 59, 116, 255]": [
+      18,
+      48,
+      96,
+      255
+    ],
+    "[232, 244, 255, 255]": [
+      190,
+      226,
+      238,
+      255
+    ],
+    "[236, 168, 118, 255]": [
+      140,
+      184,
+      194,
+      255
+    ],
+    "[244, 186, 136, 255]": [
+      150,
+      196,
+      204,
+      255
+    ],
+    "[26, 24, 44, 255]": [
+      14,
+      18,
+      36,
+      255
+    ],
+    "[28, 78, 158, 255]": [
+      20,
+      60,
+      116,
+      255
+    ],
+    "[30, 90, 168, 255]": [
+      22,
+      70,
+      124,
+      255
+    ],
+    "[34, 28, 32, 255]": [
+      24,
+      28,
+      40,
+      255
+    ],
+    "[43, 111, 212, 255]": [
+      32,
+      88,
+      158,
+      255
+    ],
+    "[44, 44, 56, 255]": [
+      30,
+      34,
+      48,
+      255
+    ],
+    "[47, 125, 225, 255]": [
+      36,
+      104,
+      168,
+      255
+    ],
+    "[62, 42, 32, 255]": [
+      46,
+      40,
+      44,
+      255
+    ],
+    "[62, 52, 58, 255]": [
+      44,
+      54,
+      68,
+      255
+    ],
+    "[66, 66, 82, 255]": [
+      46,
+      52,
+      70,
+      255
+    ],
+    "[86, 34, 30, 255]": [
+      64,
+      38,
+      44,
+      255
+    ]
+  }
+}

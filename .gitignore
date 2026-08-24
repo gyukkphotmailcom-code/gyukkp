@@ -29,6 +29,10 @@ IMG_0806.jpeg
 过程文件/Kimi开发/R3B-I-LikenessTest/阳阳爸爸头像方向参考-本地勿提交.png
 # Codex概念动作参考：含家庭外貌特征，仅本地查看；代码产物不依赖
 过程文件/Codex开发/R3B-I-P2/阳阳爸爸多动作概念参考-本地勿提交.png
+# Codex人物定档板：直接包含上述两张本地概念图裁片，只留本地
+过程文件/Codex开发/CONCEPT-MODEL-LOCK/人物模型定档总表-本地勿提交.png
+# Codex首批FC动作转译对照：含FC截图和本地概念图裁片，只留本地
+过程文件/Codex开发/CONCEPT-ACTION-0-P0/本地勿提交/
 
 # 阶段3动作分析中间文件(可由原版录像再生成)
 过程文件/Kimi开发/action_scan/
@@ -80,3 +84,23 @@ IMG_0806.jpeg
 过程文件/Kimi开发/阶段3A0精灵审核表-2.png
 过程文件/Kimi开发/阶段3A精灵审核表-1.png
 过程文件/Kimi开发/阶段3A精灵审核表-2.png
+
+# Claude 重启规划：概念图派生的人物精灵与决策图，含家庭外貌特征，只留本地
+# （build_sprites_from_concept.py 是可复现的构建源码，不忽略）
+过程文件/Claude重启规划/sprites/
+过程文件/Claude重启规划/决策图1_人物尺寸与辨识度.png
+过程文件/Claude重启规划/决策图2_三种尺寸放进场景.png
+过程文件/Claude重启规划/真实场景_40px人物_3x.png
+过程文件/Claude重启规划/B路线修复_高分旋转后降采样.png
+
+# CONCEPT-* 三个阶段目录：目录内所有 PNG 都是概念图派生的人物精灵或审核板，
+# 含家庭外貌特征（身份盲审表/派生精灵审核板等可辨识到具体个人），只留本地。
+# 构建源码（*.py）、清单（*.json）、文字记录（*.md）不含外貌像素，照常提交。
+过程文件/Kimi开发/CONCEPT-1A/**/*.png
+过程文件/Kimi开发/CONCEPT-MODEL-0/**/*.png
+过程文件/Codex开发/CONCEPT-ACTION-0-P0/**/*.png
+过程文件/Codex开发/CONCEPT-MODEL-LOCK/**/*.png
+
+# bake.py 本地美术版: 含家庭外貌特征, 只留本地
+阳阳水泳大乱斗-本地美术勿提交.html
+*.html.bak

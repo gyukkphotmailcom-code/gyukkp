@@ -1,0 +1,522 @@
+{
+  "actionSource": "本阶段无动作；动作唯一来源为FC原版（后续CONCEPT-ACTION-0）",
+  "applied": false,
+  "artifactKind": "concept-character-standard-model",
+  "blindAnswer": {
+    "keyOfIndex": [
+      "yy_head_front",
+      "yy_head_L",
+      "yy_head_R",
+      "yy_head_34",
+      "yy_body_front",
+      "yy_body_side",
+      "dd_head_front",
+      "dd_head_L",
+      "dd_head_R",
+      "dd_head_34",
+      "dd_body_front",
+      "dd_body_side"
+    ],
+    "note": "#NN 对应 entries[order[NN-1]]；盲审图为灰度去队色版",
+    "order": [
+      7,
+      2,
+      10,
+      4,
+      0,
+      9,
+      5,
+      11,
+      3,
+      8,
+      1,
+      6
+    ]
+  },
+  "checks": {
+    "bodyHeight": {
+      "fail": [],
+      "pass": true,
+      "rule": "yy全身60-72px, dd全身70-84px（容差2px）"
+    },
+    "headBodyRatio": {
+      "pass": true,
+      "ratio": {
+        "dd": 2.69,
+        "yy": 2.41
+      },
+      "rule": "总高/头高 约2.5-3"
+    },
+    "headMinSize": {
+      "fail": [],
+      "pass": true,
+      "rule": "yy头>=约24px, dd头>=约28px（容差2px）"
+    },
+    "mainHtmlUnchanged": {
+      "pass": true,
+      "sha256": "412416e95bfe4c98f4b039dc4a24fd9b28c2c23989254f22ee494d2e7bcde306"
+    }
+  },
+  "identitySource": "本地两张概念参考图（仅人工观察，未作为构建输入）",
+  "note": "人物标准模型锁定门；不含任何游戏动作；未接入游戏",
+  "palette": {
+    "BROW": [
+      58,
+      40,
+      30,
+      255
+    ],
+    "CAP": [
+      40,
+      100,
+      196,
+      255
+    ],
+    "CAP_D": [
+      20,
+      56,
+      128,
+      255
+    ],
+    "CAP_L": [
+      98,
+      160,
+      232,
+      255
+    ],
+    "CAP_LL": [
+      158,
+      204,
+      248,
+      255
+    ],
+    "GLS": [
+      16,
+      14,
+      18,
+      255
+    ],
+    "GLS_L": [
+      216,
+      232,
+      244,
+      255
+    ],
+    "GOG_F": [
+      238,
+      244,
+      250,
+      255
+    ],
+    "GOG_FSH": [
+      172,
+      190,
+      210,
+      255
+    ],
+    "GOG_L": [
+      14,
+      34,
+      80,
+      255
+    ],
+    "HAIR": [
+      22,
+      20,
+      24,
+      255
+    ],
+    "HAIR_L": [
+      58,
+      54,
+      60,
+      255
+    ],
+    "HAIR_SH": [
+      10,
+      9,
+      12,
+      255
+    ],
+    "INK": [
+      26,
+      20,
+      16,
+      255
+    ],
+    "MOUTH": [
+      150,
+      52,
+      44,
+      255
+    ],
+    "MOUTH_D": [
+      98,
+      30,
+      28,
+      255
+    ],
+    "OUT": [
+      40,
+      28,
+      20,
+      255
+    ],
+    "SKIN": [
+      246,
+      178,
+      108,
+      255
+    ],
+    "SKIN_D": [
+      192,
+      114,
+      62,
+      255
+    ],
+    "SKIN_L": [
+      254,
+      206,
+      150,
+      255
+    ],
+    "SKIN_SH": [
+      218,
+      140,
+      80,
+      255
+    ],
+    "SUIT": [
+      36,
+      96,
+      186,
+      255
+    ],
+    "SUITD": [
+      30,
+      32,
+      44,
+      255
+    ],
+    "SUITD_L": [
+      58,
+      62,
+      80,
+      255
+    ],
+    "SUIT_D": [
+      20,
+      58,
+      126,
+      255
+    ],
+    "SUIT_L": [
+      80,
+      140,
+      220,
+      255
+    ],
+    "TEETH": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "WHT": [
+      255,
+      255,
+      255,
+      255
+    ]
+  },
+  "schemaVersion": 1,
+  "sheets": [
+    {
+      "file": "阳阳标准模型表.png",
+      "sha256": "5db7cd915bd5e85a362ead4f8225eecc3d69e33f836e8be0d2ad578e881d5b1c",
+      "size": [
+        816,
+        264
+      ]
+    },
+    {
+      "file": "爸爸标准模型表.png",
+      "sha256": "29206f9d1ea8c0cb8902bd2f119f306a63f33bc18ec17b35cc8bd682261566d8",
+      "size": [
+        848,
+        300
+      ]
+    },
+    {
+      "file": "头身比例标尺.png",
+      "sha256": "b227b52f459d6e47de48ae29654d08731610e2c1c2e7db5ec699f2046c8d494f",
+      "size": [
+        400,
+        120
+      ]
+    },
+    {
+      "file": "固定调色板.png",
+      "sha256": "0955e381e0aabc7254aa386a6faab800184be95cb2080b15efcacf53247420e3",
+      "size": [
+        560,
+        292
+      ]
+    },
+    {
+      "file": "结构拆解.png",
+      "sha256": "73ec8e9ab1963642197aa658c407fd163dd855831491ca03480a9233ef18ad7a",
+      "size": [
+        720,
+        260
+      ]
+    },
+    {
+      "file": "身高对照.png",
+      "sha256": "3df1da7fc3fdf8f952a9fec2e38cc5fbc34434e560e251e5601ece0e3a87794a",
+      "size": [
+        260,
+        128
+      ]
+    },
+    {
+      "file": "身份盲审表.png",
+      "sha256": "c8b1d8b4d16d3fe26c94f35e0e1896ade919fb739c4e0cef8db2743fccf6ba5a",
+      "size": [
+        820,
+        810
+      ]
+    }
+  ],
+  "sprites": [
+    {
+      "canvas": [
+        52,
+        80
+      ],
+      "file": "sprites/dd_body_front.png",
+      "key": "dd_body_front",
+      "opaqueBBox": [
+        7,
+        0,
+        46,
+        78
+      ],
+      "opaqueSize": [
+        39,
+        78
+      ],
+      "sha256": "77edb3fdbbcbaca884bfb90e9dd3b131eecc577aea506c6ea0c9be51834a4984"
+    },
+    {
+      "canvas": [
+        40,
+        80
+      ],
+      "file": "sprites/dd_body_side.png",
+      "key": "dd_body_side",
+      "opaqueBBox": [
+        6,
+        0,
+        32,
+        78
+      ],
+      "opaqueSize": [
+        26,
+        78
+      ],
+      "sha256": "c132ee3ec75bdcc6dcde8db1f035b0a4b6d00ac59bd0dd4a85ee826fb2807202"
+    },
+    {
+      "canvas": [
+        30,
+        30
+      ],
+      "file": "sprites/dd_head_34.png",
+      "key": "dd_head_34",
+      "opaqueBBox": [
+        0,
+        0,
+        28,
+        29
+      ],
+      "opaqueSize": [
+        28,
+        29
+      ],
+      "sha256": "6d6810e88848ec97bc5b1f7d9bbca632978c3102cf4a1e68d50aeff9d30d2b63"
+    },
+    {
+      "canvas": [
+        30,
+        30
+      ],
+      "file": "sprites/dd_head_L.png",
+      "key": "dd_head_L",
+      "opaqueBBox": [
+        2,
+        0,
+        28,
+        29
+      ],
+      "opaqueSize": [
+        26,
+        29
+      ],
+      "sha256": "a7aaa311077494f122e416ac5e1e70037e55b354f743060682b702624495dad1"
+    },
+    {
+      "canvas": [
+        30,
+        30
+      ],
+      "file": "sprites/dd_head_R.png",
+      "key": "dd_head_R",
+      "opaqueBBox": [
+        2,
+        0,
+        28,
+        29
+      ],
+      "opaqueSize": [
+        26,
+        29
+      ],
+      "sha256": "919a125eb611309fcf3d3a2e3517bbc4cbe21d2f26e1ab81534b348a59ccf385"
+    },
+    {
+      "canvas": [
+        30,
+        30
+      ],
+      "file": "sprites/dd_head_front.png",
+      "key": "dd_head_front",
+      "opaqueBBox": [
+        0,
+        0,
+        30,
+        29
+      ],
+      "opaqueSize": [
+        30,
+        29
+      ],
+      "sha256": "cb2c6ea5404cd470b08243ce3aa39bee1d8ae3966b3ed5bdc1c046f4288f7f9c"
+    },
+    {
+      "canvas": [
+        48,
+        68
+      ],
+      "file": "sprites/yy_body_front.png",
+      "key": "yy_body_front",
+      "opaqueBBox": [
+        8,
+        0,
+        40,
+        65
+      ],
+      "opaqueSize": [
+        32,
+        65
+      ],
+      "sha256": "a789d065a85b65da5e380fd4bb88d4f334d3e051e673b5ebf3f821afc6a47534"
+    },
+    {
+      "canvas": [
+        36,
+        68
+      ],
+      "file": "sprites/yy_body_side.png",
+      "key": "yy_body_side",
+      "opaqueBBox": [
+        6,
+        0,
+        31,
+        65
+      ],
+      "opaqueSize": [
+        25,
+        65
+      ],
+      "sha256": "8dce08dfa371c80bba80203f8b222c848e12cbaeecfb0b48af517566a7634696"
+    },
+    {
+      "canvas": [
+        28,
+        28
+      ],
+      "file": "sprites/yy_head_34.png",
+      "key": "yy_head_34",
+      "opaqueBBox": [
+        0,
+        0,
+        26,
+        27
+      ],
+      "opaqueSize": [
+        26,
+        27
+      ],
+      "sha256": "b29ceeb86e95949b42f9adca8828ed4ddd2add16e18003d44fa8bdb7eb81a467"
+    },
+    {
+      "canvas": [
+        28,
+        28
+      ],
+      "file": "sprites/yy_head_L.png",
+      "key": "yy_head_L",
+      "opaqueBBox": [
+        2,
+        0,
+        27,
+        27
+      ],
+      "opaqueSize": [
+        25,
+        27
+      ],
+      "sha256": "90b17d464a60998cca7eb27d41bfcc78b917f4ad5783c194579610aecc1ebe1b"
+    },
+    {
+      "canvas": [
+        28,
+        28
+      ],
+      "file": "sprites/yy_head_R.png",
+      "key": "yy_head_R",
+      "opaqueBBox": [
+        1,
+        0,
+        26,
+        27
+      ],
+      "opaqueSize": [
+        25,
+        27
+      ],
+      "sha256": "76f6582abf32676ede0d5b26a23cc11da9cb902410e9ce65fd08aa5a0bddf817"
+    },
+    {
+      "canvas": [
+        28,
+        28
+      ],
+      "file": "sprites/yy_head_front.png",
+      "key": "yy_head_front",
+      "opaqueBBox": [
+        0,
+        0,
+        28,
+        27
+      ],
+      "opaqueSize": [
+        28,
+        27
+      ],
+      "sha256": "e36c33952629c57bf3c3a2ab1de2cb7c14b7a1ee5aa809803e7c021f80fb1e49"
+    }
+  ],
+  "stage": "CONCEPT-MODEL-0"
+}

@@ -14,9 +14,14 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;}
 <script>
 "use strict";
 /* =====================================================
-   《阳阳 VS 爸爸 · 水泳バトルロイヤル》原版复刻 — 阶段3
-   阶段1静态画面 + 阶段3: 60Hz状态机移动/跳跃/下潜/八向游动/换气。
-   暂不实现: 攻击/AI/计时倒数/声音/触屏。
+   《阳阳 VS 爸爸 · 水泳バトルロイヤル》原版复刻 — 阶段 B2
+   阶段1静态画面 + 阶段3: 60Hz状态机移动/跳跃/下潜/八向游动/换气
+   + B0 资产层解耦(SPRITES 数据契约, 玩法不依赖具体美术)
+   + B1 比赛流程(3:00倒计时 / HP / 气绝掉血 / 胜负判定 / 重开)
+   + B2 战斗内核(快照式tick消除先手偏差 / inputSource抽象 / 唯一interaction骨架 / 水下踢击三相位)
+   尺寸与画风以《输出/唯一尺寸与画风合同.md》为唯一权威。
+   暂不实现: 肩组/拉脚/骑头(B3)、败北演出与结算画面(B4)、
+             爸爸AI与2P(B5)、声音与触屏(C1)。
    布局基准(256×224 原生实机帧测量):
      比赛区 y=0..167 / HUD y=168..223
      远景(日版固定像素背景) y=0..72 / 透视水面 y=72..101
@@ -391,15 +396,35 @@ const ORIGINAL_TUNING = {
   bubbleRiseAirFp: 128,                  // 0.5px/tick 换气气泡(空气中) 待标定
   bubbleLifeAir: 48,                     // 换气气泡寿命 待标定
   bubbleFrameT: 18,                      // 气泡动画分帧点(2x2→1x1) 待标定
+  /* ---- B1 比赛流程 ----
+     分级依据《唯一尺寸与画风合同》第六节:
+       硬标准(规则性事实, 必须复刻): 比赛3:00 / 氧气归零进气绝并持续掉血 / HP归零判负 / 时间到按HP判胜负
+       软标准(估值, 以试玩手感为准): 掉血速率、上浮速率、呛水回氧量、HP槽单位数 */
+  matchTicks: 10800,                     // 3:00 @60Hz 硬标准
+  hpMaxFp: FP(48),                       // HP槽单位数 估值
+  /* 气绝掉血: 越深越久才浮回水面 → 一次气绝代价 6~29 单位(满槽48), 约3次气绝致死。
+     标定依据: 必须让"扣到0"在 3:00 内可达, 否则胜负判定形同虚设。数值为估值, 试玩后再调。 */
+  drownDrainFp: 48,                      // 气绝每tick掉血 估值
+  drownRiseFp: 96,                       // 气绝失控上浮 0.375px/tick 估值
+  drownRecoverFp: FP(18),                // 呛回水面后恢复的氧量(非满槽) 估值
+  /* ---- B2 水下踢击/受击 (全部为估值, 以试玩手感为准) ---- */
+  kickStartupTicks: 6,                   // 起手相位 估值
+  kickActiveTicks: 6,                    // 有效相位(有hitbox) 估值
+  kickRecoverTicks: 10,                  // 收招相位 估值
+  kickTotalTicks: 22,                    // = 6+6+10
+  kickDamageFp: FP(6),                   // 命中扣血(满槽48) 估值
+  hitStunTicks: 12,                      // 受击硬直 估值
+  hitKnockFp: 192,                       // 击退速度 0.75px/tick 估值
 };
 
 /* ---------- 输入 (键盘: 方向 + Z/空格=A, X=B; 或内置测试脚本) ---------- */
-const Input = { L:0, R:0, U:0, D:0, A:0, B:0, pA:0, pB:0 };
-const KEYMAP = { ArrowLeft:'L', ArrowRight:'R', ArrowUp:'U', ArrowDown:'D', KeyZ:'A', Space:'A', KeyX:'B' };
+const Input = { L:0, R:0, U:0, D:0, A:0, B:0, pA:0, pB:0, START:0, pStart:0 };
+const KEYMAP = { ArrowLeft:'L', ArrowRight:'R', ArrowUp:'U', ArrowDown:'D', KeyZ:'A', Space:'A', KeyX:'B',
+                 Enter:'START', KeyR:'START' };
 let scriptMode = null;
 addEventListener('keydown', e => {
   const k = KEYMAP[e.code]; if (!k || scriptMode) return;
-  if (!Input[k]) { if (k === 'A') Input.pA = 1; if (k === 'B') Input.pB = 1; }
+  if (!Input[k]) { if (k === 'A') Input.pA = 1; if (k === 'B') Input.pB = 1; if (k === 'START') Input.pStart = 1; }
   Input[k] = 1; e.preventDefault();
 });
 addEventListener('keyup', e => {
@@ -803,17 +828,216 @@ function drawPart(map, x, y, colors, flip){
   }
 }
 
+/* =====================================================
+   B0: 资产层解耦 — SPRITES 数据契约
+   -----------------------------------------------------
+   玩法代码只认契约, 不认像素是谁画的、来自占位还是正式美术。
+   契约定义见《输出/唯一尺寸与画风合同.md》第 4.5 节:
+     SPRITES.frames["yy.UW.R.0"] = { w,h,anchorX,anchorY, rows, bbox, hurtbox, hitbox, placeholder }
+   - rows      扁平的完整人物字符网格(不再是"24x24头贴上+16x16身体填空")
+   - anchorX/Y 世界锚点在帧内的偏移; 状态切换只改绘制原点, 逻辑锚点不动
+   - hurtbox/hitbox 是独立数据字段(规格书5.1要求), 当前为 provisional 占位值
+   当前 frames 由 bakeFrames() 从阶段2/阶段3 已验收像素合成, 输出与旧渲染逐像素一致。
+   正式美术接入方式: bake.py 读概念图流水线的 PNG, 生成同结构的 SPRITES 段替换本段。
+   ** 替换时下面的玩法代码零改动。这是美术轨与玩法轨能并行的技术前提。 **
+   ===================================================== */
+const SPRITES = { meta:{ source:'placeholder-v1', yyHeight:40, ddHeight:47 }, frames:{} };
+const frameId = (avatar, action, dir, idx) => avatar + '.' + action + '.' + (dir > 0 ? 'R' : 'L') + '.' + idx;
+
+function composeFrame(lay, bodyMap, headMap, headDy, mir){
+  const g = [];
+  for (let r = 0; r < lay.h; r++) g.push(new Array(lay.w).fill('.'));
+  const blit = (map, x0, y0, flip) => {
+    const mh = map.length, mw = map[0].length;
+    for (let r = 0; r < mh; r++) for (let q = 0; q < mw; q++){
+      const ch = map[r][flip ? mw - 1 - q : q];
+      if (ch === '.') continue;
+      const x = x0 + q, y = y0 + r;
+      if (x >= 0 && x < lay.w && y >= 0 && y < lay.h) g[y][x] = ch;   // 后画的头覆盖身体, 与旧渲染同序
+    }
+  };
+  blit(bodyMap, mir ? lay.w - lay.body[0] - 16 : lay.body[0], lay.body[1], mir);
+  blit(headMap, mir ? lay.w - lay.head[0] - 24 : lay.head[0], lay.head[1] + headDy, false);
+  return g.map(row => row.join(''));
+}
+function rowsBBox(rows){
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let r = 0; r < rows.length; r++) for (let q = 0; q < rows[r].length; q++)
+    if (rows[r][q] !== '.'){
+      if (q < x0) x0 = q; if (q > x1) x1 = q;
+      if (r < y0) y0 = r; if (r > y1) y1 = r;
+    }
+  return x1 < 0 ? null : { x:x0, y:y0, w:x1 - x0 + 1, h:y1 - y0 + 1 };
+}
+
+function bakeFrames(){
+  const face = (a, d) => AVATAR[a][d];
+  const side = (a, d) => HEAD_SIDE[a][d];
+  const down = (a, d) => HEAD_DOWN[a][d];
+  const brth = i => (a, d) => AVATAR_BREATH[a][d][i];
+  /* 已有正式像素的动作(阶段2/3已验收) */
+  const REAL = {
+    SURF:   [[LAY.SURF, () => BODY.SURF[0], face], [LAY.SURF, () => BODY.SURF[1], face]],
+    JUMP:   [[LAY.JUMP[0], () => BODY.JC[0], face], [LAY.JUMP[1], () => BODY.JA[0], side], [LAY.JUMP[2], () => BODY.JF[0], face]],
+    DIVE:   [[LAY.DIVE[0], () => BODY.DIVE[0], side], [LAY.DIVE[1], () => BODY.DIVE[1], side], [LAY.DIVE[2], () => BODY.DIVE[2], down]],
+    UW:     [[LAY.UW, () => BODY.UW[0], side], [LAY.UW, () => BODY.UW[1], side]],
+    UWB:    [[LAY.UW, () => BODY.UWB[0], side], [LAY.UW, () => BODY.UWB[1], side]],
+    UWU:    [[LAY.EMERGE, () => BODY.EMERGE[0], face]],
+    UWD:    [[LAY.UWV, () => BODY.UWV[0], down]],
+    EMERGE: [[LAY.EMERGE, () => BODY.EMERGE[0], face]],
+    BREATH: [[LAY.BREATH, () => BODY.SURF[0], face], [LAY.BREATH, () => BODY.BREATH[0], brth(0)],
+             [LAY.BREATH, () => BODY.BREATH[1], brth(1)], [LAY.BREATH, () => BODY.BREATH[2], brth(0)]],
+  };
+  /* 尚无正式美术的动作: 用最接近的既有姿态占位, 全部标 placeholder:true。
+     玩法代码现在就能引用它们并写完整状态机, 不必等美术定稿。
+     正式帧到位后, 只替换 SPRITES 段, 这张表整张消失。 */
+  const PLACE = {
+    KICK:             [[LAY.UW, () => BODY.UWB[0], side], [LAY.UW, () => BODY.UWB[1], side]],
+    HIT:              [[LAY.UWV, () => BODY.UWV[0], down], [LAY.UW, () => BODY.UW[1], side]],
+    DROWN:            [[LAY.UWV, () => BODY.UWV[0], down], [LAY.UW, () => BODY.UW[0], side]],
+    LOSE:             [[LAY.SURF, () => BODY.SURF[0], face], [LAY.SURF, () => BODY.SURF[1], face]],
+    GRAPPLE:          [[LAY.EMERGE, () => BODY.EMERGE[0], face], [LAY.SURF, () => BODY.SURF[1], face]],
+    GRAPPLE_STRUGGLE: [[LAY.SURF, () => BODY.SURF[1], face], [LAY.EMERGE, () => BODY.EMERGE[0], face]],
+    GRAPPLE_PUNCH:    [[LAY.EMERGE, () => BODY.EMERGE[0], face], [LAY.BREATH, () => BODY.BREATH[1], face]],
+    MOUNT:            [[LAY.SURF, () => BODY.JC[0], face], [LAY.SURF, () => BODY.JF[0], face]],
+    MOUNTED:          [[LAY.UWV, () => BODY.UWV[0], down], [LAY.SURF, () => BODY.SURF[0], face]],
+    LEGPULL:          [[LAY.UW, () => BODY.UW[0], side], [LAY.UW, () => BODY.UWB[0], side]],
+    LEGPULLED:        [[LAY.UW, () => BODY.UW[1], side], [LAY.UWV, () => BODY.UWV[0], down]],
+  };
+  const build = (table, isPh) => {
+    for (const action in table) table[action].forEach((def, idx) => {
+      const [lay, bodyOf, headOf] = def;
+      for (const avatar of ['yy', 'dd']) for (const dir of [1, -1]){
+        const d = dir > 0 ? 'right' : 'left';
+        const rows = composeFrame(lay, bodyOf(avatar), headOf(avatar, d), HEAD_DY_FOR(action, idx, avatar), dir < 0);
+        const bbox = rowsBBox(rows);
+        SPRITES.frames[frameId(avatar, action, dir, idx)] = {
+          w: lay.w, h: lay.h, anchorX: lay.anchorX, anchorY: lay.anchorY,
+          rows, bbox,
+          /* hitbox/hurtbox 由 attachBoxes() 统一注入(在 BAKE 段之后执行,
+             占位版与本地美术版都走同一份按动作/相位给值的独立数据)。 */
+          hurtbox: [], hitbox: null,
+          placeholder: isPh,
+        };
+      }
+    });
+  };
+  build(REAL, false);
+  build(PLACE, true);
+}
+
+/* ---------- 判定盒: 独立数据, 不再由像素外接框推导 ----------
+   锚点相对坐标 {rx,ry,w,h}, 朝右为基准; 朝左在注入时按帧宽与锚点镜像。
+   值按动作给; KICK/GRAPPLE_PUNCH 的 hitbox 按相位(帧idx)给: 起手/收招无判定, 有效相位才有。
+   用锚点相对而不是帧内绝对坐标: 换美术(帧宽变化)时盒子跟随锚点语义, 玩法代码零改动。 */
+const BOX_TALL = { rx:-10, ry:-38, w:20, h:34 };   // 24x40 直立类(SURF系/EMERGE/BREATH/JUMP首尾帧)
+const BOX_SURF = { rx:-10, ry:-38, w:20, h:28 };   // 水面漂浮(身体没入水下部分不计)
+const BOX_WIDE = { rx:-18, ry:-22, w:36, h:22 };   // 38x24 横卧类(UW/UWB/KICK/JUMP空中/DIVE横卧)
+const BOX_DIVE1 = { rx:-18, ry:-26, w:36, h:24 };  // 38x32 下潜转向帧
+const BOX_VERT = { rx:-8,  ry:-38, w:17, h:32 };   // 24x40 垂直类(UWD/DIVE垂直)
+const HURTBOX = {
+  SURF: BOX_SURF, JUMP: [BOX_TALL, BOX_WIDE, BOX_TALL], BREATH: BOX_TALL,
+  DIVE: [BOX_WIDE, BOX_DIVE1, BOX_VERT],
+  UW: BOX_WIDE, UWB: BOX_WIDE, UWU: BOX_TALL, UWD: BOX_VERT, EMERGE: BOX_TALL,
+  KICK: BOX_WIDE, HIT: [BOX_VERT, BOX_WIDE], DROWN: [BOX_VERT, BOX_WIDE],
+  LOSE: BOX_SURF, GRAPPLE: [BOX_TALL, BOX_SURF], GRAPPLE_STRUGGLE: [BOX_SURF, BOX_TALL],
+  GRAPPLE_PUNCH: BOX_TALL, MOUNT: BOX_TALL, MOUNTED: [BOX_VERT, BOX_SURF],
+  LEGPULL: BOX_WIDE, LEGPULLED: [BOX_WIDE, BOX_VERT],
+};
+const HITBOX = {
+  KICK: [null, { rx:9, ry:-20, w:16, h:16 }],          // idx0起手/收招无判定, idx1有效相位打身前
+  GRAPPLE_PUNCH: [null, { rx:2, ry:-32, w:16, h:12 }], // B3 接肩组时按相位复核
+};
+const boxSpec = (table, action, idx) => {
+  const v = table[action];
+  return v ? (Array.isArray(v) ? (v[idx] || null) : v) : null;
+};
+function attachBoxes(){
+  for (const id in SPRITES.frames){
+    const f = SPRITES.frames[id];
+    const p = id.split('.'), dirR = p[2] === 'R', idx = +p[3];
+    const toFrame = r => r ? [{ x: dirR ? f.anchorX + r.rx : f.w - f.anchorX - r.rx - r.w,
+                                 y: f.anchorY + r.ry, w: r.w, h: r.h }] : null;
+    f.hurtbox = toFrame(boxSpec(HURTBOX, p[1], idx)) || [];
+    f.hitbox  = toFrame(boxSpec(HITBOX,  p[1], idx));
+  }
+}
+/* 仅正脸头需要 dd 下移2px接下巴; 侧脸/垂直头组合内已对齐 (与旧 headDyFor 等价, 改为按帧静态求值) */
+function HEAD_DY_FOR(action, idx, avatar){
+  const faceFrame = (action === 'SURF' || action === 'EMERGE' || action === 'UWU' ||
+                     action === 'LOSE' || action === 'GRAPPLE' || action === 'GRAPPLE_STRUGGLE' ||
+                     action === 'GRAPPLE_PUNCH' || action === 'MOUNT' ||
+                     (action === 'MOUNTED' && idx === 1) ||
+                     (action === 'BREATH') ||
+                     (action === 'JUMP' && idx !== 1));
+  return faceFrame ? HEAD_DY[avatar] : 0;
+}
+/* BAKE:SPRITES:BEGIN —— 本段由 bake.py 整段替换, 手工编辑会在下次 bake 时丢失 */
+bakeFrames();                       // 占位资产: 由阶段2/3已验收像素合成, 全部 placeholder:true
+/* BAKE:SPRITES:END */
+attachBoxes();                      // 判定盒注入: 对占位帧与 bake.py 正式帧同样生效
+
+/* 两种像素来源:
+   - 占位帧: 字符=语义调色键(O/S/W/...), 颜色由 colorsFor() 按角色/水下给出
+   - 正式帧: 字符=调色板索引, 颜色由 f.pal 直接给出(概念图流水线的24色共享调色板)
+   玩法代码对二者无感。 */
+/* 正式帧的水下配色: 规格书4.1要求"水下角色直接切换为青/蓝水下专用精灵配色",
+   且不得用 globalAlpha 或棋盘格覆盖。占位帧走 UW_MAP 语义映射, 正式帧按调色板整体偏移,
+   结果同样是硬切色。每张调色板只算一次并缓存(不可枚举, 不污染契约自检)。 */
+function uwPalette(pal){
+  if (pal.__uw) return pal.__uw;
+  const out = {};
+  for (const k in pal){
+    const h = pal[k];
+    const r = parseInt(h.slice(1, 3), 16), g = parseInt(h.slice(3, 5), 16), b = parseInt(h.slice(5, 7), 16);
+    const c = [(r * 0.34) | 0, (g * 0.62 + 38) | 0, Math.min(255, (b * 0.55 + 96) | 0)];
+    out[k] = '#' + c.map(v => Math.min(255, v).toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  Object.defineProperty(pal, '__uw', { value: out });
+  return out;
+}
+function drawFrame(f, x, y, colors, uw){
+  const pal = f.pal ? (uw ? uwPalette(f.pal) : f.pal) : colors;
+  for (let r = 0; r < f.rows.length; r++){
+    const row = f.rows[r];
+    for (let q = 0; q < row.length; q++){
+      const k = row[q];
+      if (k === '.') continue;
+      ctx.fillStyle = pal[k];
+      ctx.fillRect(x + q, y + r, 1, 1);
+    }
+  }
+}
+
 /* ---------- 角色状态机 (锚点=脚底中心, 全整数定点: 坐标/速度/斜向系数均为fp整数, 1px=256fp) ---------- */
-const ST = { SURF:'SURF', JUMP:'JUMP', DIVE:'DIVE', UW:'UW', EMERGE:'EMERGE', BREATH:'BREATH' };
+const ST = { SURF:'SURF', JUMP:'JUMP', DIVE:'DIVE', UW:'UW', EMERGE:'EMERGE', BREATH:'BREATH',
+             DROWN:'DROWN', LOSE:'LOSE', KICK:'KICK', HIT:'HIT' };
 const FOOT_SURF_Fp = FP(ORIGINAL_TUNING.surfFootY);            // 水面脚底锚点 y=108
-const ANCHOR_X_MIN_Fp = FP(20), ANCHOR_X_MAX_Fp = FP(236);     // 统一横向钳制带(与状态无关→切换不瞬移)
+/* 统一横向钳制带(与状态无关→切换不瞬移)。
+   ** 必须由当前 SPRITES 资产推导, 不能写死 **: 占位帧宽38px、概念图正式帧宽61px,
+   写死的 [20,236] 会让正式帧左右出画。资产层解耦要求钳制带随资产走。 */
+function spriteExtents(){
+  let left = 0, right = 0;
+  for (const id in SPRITES.frames){
+    const f = SPRITES.frames[id], b = f.bbox;
+    if (!b) continue;
+    left  = Math.max(left,  f.anchorX - b.x);                  // 锚点左侧最大伸出
+    right = Math.max(right, (b.x + b.w - 1) - f.anchorX);      // 锚点右侧最大伸出
+  }
+  return { left, right };
+}
+const EXT = spriteExtents();
+const ANCHOR_X_MIN_Fp = FP(EXT.left), ANCHOR_X_MAX_Fp = FP(LW - 1 - EXT.right);
 function mkChar(xFp, dir, avatar, team){
   return { axFp: xFp, ayFp: FOOT_SURF_Fp, dir, prefDir: 0, avatar, team,   // R3: 预选方向初始0(无证据默认朝向水平跳)
            state: ST.SURF, t: 0, boostFp: 0, airFp: ORIGINAL_TUNING.airMaxFp,
-           swimT: 0, jumpDir: 0, jumpX0Fp: xFp, emergeFromFp: 0, uwPose: 'H' };   // R6: UW方向三态 H横卧/U头朝上/D头朝下
+           hpFp: ORIGINAL_TUNING.hpMaxFp,
+           swimT: 0, jumpDir: 0, jumpX0Fp: xFp, emergeFromFp: 0, uwPose: 'H',   // R6: UW方向三态 H横卧/U头朝上/D头朝下
+           id: avatar, input: 'IDLE', hitDir: 0, iid: null };   // id=interaction里的角色标识; input=inputSource键; iid=持有的交互id
 }
 const yy  = mkChar(FP(94), 1, 'yy', '#3C9CF0');    // 阳阳(玩家)
-const dad = mkChar(FP(180), -1, 'dd', '#F83800');  // 爸爸(静止脚本)
+const dad = mkChar(FP(180), -1, 'dd', '#F83800');  // 爸爸(B5前为空输入)
+yy.input = '1P';
 const parts = [];                                  // 粒子 {type, xFp, yFp, t, inAir} 全整数
 
 function spawnSplash(xFp, yFp){ parts.push({ type:'splash', xFp: xFp - FP(4), yFp: yFp - FP(2), t: 0, inAir: false }); }
@@ -839,59 +1063,34 @@ function jumpIdx(t){                               // JUMP三帧: 起跳蹲JC / 
   const T = ORIGINAL_TUNING;
   return t < T.jumpFrame1Tick ? 0 : t < T.jumpFrame2Tick ? 1 : 2;
 }
-function curLay(c){
-  switch (c.state){
-    case ST.JUMP:   return LAY.JUMP[jumpIdx(c.t)];
-    case ST.DIVE:   return LAY.DIVE[diveIdx(c.t)];
-    case ST.UW:     return c.uwPose === 'H' ? LAY.UW : c.uwPose === 'U' ? LAY.EMERGE : LAY.UWV;  // R6三态
-    case ST.EMERGE: return LAY.EMERGE;
-    case ST.BREATH: return LAY.BREATH;
-    default:        return LAY.SURF;
-  }
-}
-function curBody(c){
+/* 角色状态 → SPRITES 契约里的帧 id。这是玩法层与美术层唯一的接触面:
+   换美术只换 SPRITES.frames 的内容, 本函数与其余玩法代码都不动。 */
+function frameIdFor(c){
   const T = ORIGINAL_TUNING;
+  let action = 'SURF', idx = 0;
   switch (c.state){
-    case ST.JUMP:   return [BODY.JC[0], BODY.JA[0], BODY.JF[0]][jumpIdx(c.t)];  // 蹲/横向飞扑/下落
-    case ST.DIVE:   return BODY.DIVE[diveIdx(c.t)];  // 横卧准备→转向→垂直下沉(与UW/EMERGE不同姿态)
-    case ST.UW: {                                    // R6三态: H横卧(加速UWB流线帧) / U头朝上 / D头朝下蜷身
-      if (c.uwPose === 'U') return BODY.EMERGE[0];
-      if (c.uwPose === 'D') return BODY.UWV[0];
-      const cyc = c.boostFp > 0 ? T.boostCycleTicks : T.swimCycleTicks;
-      return (c.boostFp > 0 ? BODY.UWB : BODY.UW)[Math.floor(c.swimT / cyc) % 2];
-    }
-    case ST.EMERGE: return BODY.EMERGE[0];           // 直立仰身
-    case ST.BREATH: {                                // 准备=水面帧 / 挺起 / 双臂展开大口 / 回落
-      const bi = breathBodyIdx(c.t);
-      return bi < 0 ? BODY.SURF[0] : BODY.BREATH[bi];
-    }
-    default: return BODY.SURF[Math.floor(c.t / T.floatBobTicks) % 2];
+    case ST.JUMP:   action = 'JUMP';   idx = jumpIdx(c.t); break;
+    case ST.DIVE:   action = 'DIVE';   idx = diveIdx(c.t); break;
+    case ST.UW:                                      // R6三态: H横卧(加速用UWB流线帧) / U头朝上 / D头朝下蜷身
+      if (c.uwPose === 'U') action = 'UWU';
+      else if (c.uwPose === 'D') action = 'UWD';
+      else {
+        action = c.boostFp > 0 ? 'UWB' : 'UW';
+        idx = Math.floor(c.swimT / (c.boostFp > 0 ? T.boostCycleTicks : T.swimCycleTicks)) % 2;
+      }
+      break;
+    case ST.EMERGE: action = 'EMERGE'; break;
+    case ST.KICK:   action = 'KICK';   idx = kickPhaseOf(c.t) === 'ACTIVE' ? 1 : 0; break; // 起手/收招用idx0(无hitbox), 有效相位idx1
+    case ST.HIT:    action = 'HIT';    idx = Math.floor(c.t / 8) % 2; break;
+    case ST.BREATH: action = 'BREATH'; idx = breathBodyIdx(c.t) + 1; break;   // −1..2 → 0..3
+    case ST.DROWN:  action = 'DROWN';  idx = Math.floor(c.t / 16) % 2; break; // 占位帧
+    case ST.LOSE:   action = 'LOSE';   idx = Math.floor(c.t / 24) % 2; break; // 占位帧
+    default:        action = 'SURF';   idx = Math.floor(c.t / T.floatBobTicks) % 2;
   }
-}
-function curHead(c){
-  const d = c.dir > 0 ? 'right' : 'left';
-  if (c.state === ST.BREATH){
-    const hi = breathHeadIdx(c.t);                   // 准备段用normal, 上升/顶峰/回落用张嘴两帧
-    return hi < 0 ? AVATAR[c.avatar][d] : AVATAR_BREATH[c.avatar][d][hi];
-  }
-  if (c.state === ST.DIVE)                           // 头身朝向一致: 垂直帧=头顶朝下, 横卧/转向=侧脸
-    return (diveIdx(c.t) === 2 ? HEAD_DOWN : HEAD_SIDE)[c.avatar][d];
-  if (c.state === ST.UW){                            // H横卧=侧脸头; D头朝下=垂直头; U头朝上=正脸头
-    if (c.uwPose === 'U') return AVATAR[c.avatar][d];
-    return (c.uwPose === 'D' ? HEAD_DOWN : HEAD_SIDE)[c.avatar][d];
-  }
-  if (c.state === ST.JUMP && jumpIdx(c.t) === 1)     // 空中飞扑帧=侧脸头(与水平身体同向)
-    return HEAD_SIDE[c.avatar][d];
-  return AVATAR[c.avatar][d];
-}
-function headDyFor(c){                               // 仅正脸头需要dd下移2px接下巴; 侧脸/垂直头组合内已对齐
-  if (c.state === ST.DIVE) return 0;
-  if (c.state === ST.UW && c.uwPose !== 'U') return 0;
-  if (c.state === ST.JUMP && jumpIdx(c.t) === 1) return 0;
-  return HEAD_DY[c.avatar];
+  return frameId(c.avatar, action, c.dir, idx);
 }
 
-function tickChar(c, inp){
+function tickChar(c, inp, intent){
   const T = ORIGINAL_TUNING;
   c.t++;
   switch (c.state){
@@ -953,6 +1152,8 @@ function tickChar(c, inp){
       break;
     }
     case ST.UW: {
+      const it = intent || decide(c, snapChar(c), null, inp);   // 无对手的单角色自检路径也能进KICK
+      if (it.startKick){ c.state = ST.KICK; c.t = 0; c.boostFp = 0; break; }   // 水下踢击起手
       const dx = (inp.R ? 1 : 0) - (inp.L ? 1 : 0);
       const dy = (inp.D ? 1 : 0) - (inp.U ? 1 : 0);
       if (dx) c.dir = dx;
@@ -973,7 +1174,42 @@ function tickChar(c, inp){
       if (inp.U && c.ayFp <= T.uwTopFp){                 // 到顶上浮; 离开UW立即清零boost
         c.state = ST.EMERGE; c.t = 0; c.emergeFromFp = c.ayFp; c.boostFp = 0; break;
       }
-      c.airFp = Math.max(0, c.airFp - T.airDrainFp);           // 水下耗氧(气绝演出属阶段4)
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);           // 水下耗氧
+      if (c.airFp <= 0){                                       // 氧气归零→气绝(硬标准: 规则性事实)
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+      }
+      break;
+    }
+    case ST.DROWN: {                                   // 气绝: 失去操控, 缓慢上浮, 持续掉血(硬标准); 速率为估值
+      c.hpFp = Math.max(0, c.hpFp - T.drownDrainFp);
+      c.ayFp -= T.drownRiseFp;
+      if (c.t % T.uwBubbleEvery === 0) spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+      if (c.ayFp <= FOOT_SURF_Fp){                     // 呛回水面: 只恢复一部分氧, 不是满槽
+        c.ayFp = FOOT_SURF_Fp; c.state = ST.SURF; c.t = 0;
+        c.airFp = T.drownRecoverFp;
+        spawnSplash(c.axFp, T.splashYFp);
+      }
+      break;
+    }
+    case ST.LOSE: { c.ayFp = FOOT_SURF_Fp; break; }    // 败北: 停在水面(演出属 B4)
+    case ST.KICK: {                                    // 水下踢击: 起手/有效/收招三相位, 期间不能移动
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);
+      if (c.airFp <= 0){                                        // 水下耗氧归零→气绝(与UW一致)
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false); break;
+      }
+      if (c.t >= T.kickTotalTicks){ c.state = ST.UW; c.t = 0; c.uwPose = 'H'; }
+      break;
+    }
+    case ST.HIT: {                                     // 受击: 击退+硬直, 结束回水下
+      c.axFp += c.hitDir * T.hitKnockFp;
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false); break;
+      }
+      if (c.t >= T.hitStunTicks){ c.state = ST.UW; c.t = 0; c.uwPose = 'D'; }
       break;
     }
     case ST.EMERGE: {
@@ -992,7 +1228,7 @@ function tickChar(c, inp){
 /* 锚点钳制: 横向统一[20,236]与状态无关; UW纵向全姿态统一[120,166](R6删UWV例外域, 姿态切换坐标不变) */
 function clampChar(c){
   c.axFp = Math.max(ANCHOR_X_MIN_Fp, Math.min(ANCHOR_X_MAX_Fp, c.axFp));
-  if (c.state === ST.UW){
+  if (c.state === ST.UW || c.state === ST.KICK || c.state === ST.HIT){
     const T = ORIGINAL_TUNING;
     c.ayFp = Math.max(T.uwTopFp, Math.min(T.uwBotFp, c.ayFp));
   }
@@ -1015,31 +1251,192 @@ function tickParts(){
 }
 
 const IDLE_INPUT = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+
+/* =====================================================
+   B2: 同步战斗内核 — 快照式结算 + inputSource 抽象 + 唯一 interaction 骨架 + 水下踢击
+   tick() 的 FIGHT 分支按四段组织(规格书3.1), 消除"先tick者占便宜"的先手偏差:
+     ① 冻结双方旧状态快照 + 同时读取双方输入
+     ② 各自 decide() 生成意图, 只读快照, 不读对方的新状态
+     ③ resolvePair() 统一解析命中/优先级, 驱动唯一一个 interaction 对象
+     ④ commit: tickChar×2 + applyFx, 双方效果同一tick内一起落地
+   ===================================================== */
+/* 输入源抽象: 1P键盘 / IDLE空输入; 2P / CPU / REPLAY 在 B5 接入本表, tick() 不变 */
+const InputSources = {
+  '1P':   () => Input,
+  'IDLE': () => IDLE_INPUT,
+};
+function readInput(c){ return InputSources[c.input](); }
+
+function snapChar(c){                                  // ① 快照: 结算期间对方只能读到这份冻结值
+  return { id: c.avatar, avatar: c.avatar, axFp: c.axFp, ayFp: c.ayFp, dir: c.dir,
+           state: c.state, t: c.t, uwPose: c.uwPose, swimT: c.swimT, boostFp: c.boostFp,
+           hpFp: c.hpFp, airFp: c.airFp };
+}
+/* ② 意图: 只读快照与输入。本轮只有踢击一种; 肩组/骑头/拉脚的意图在 B3 挂进同一结构 */
+function decide(c, self, foe, inp){
+  return { startKick: !!(inp.pB && self.state === ST.UW) };
+}
+
+/* 唯一成对交互对象。建立/中断/结束都发生在 resolvePair/commit 的同一tick内(原子);
+   两个角色只持有它的 id(c.iid)。kind 本轮只有 'KICK', 结构按四种交互设计。 */
+let interaction = null;
+let nextIid = 1;
+
+function kickPhaseOf(t){
+  const T = ORIGINAL_TUNING;
+  return t < T.kickStartupTicks ? 'STARTUP'
+       : t < T.kickStartupTicks + T.kickActiveTicks ? 'ACTIVE' : 'RECOVER';
+}
+/* 快照角色当前帧的判定盒 → 世界坐标 [x, y, w, h] (与 drawSwimmers 同一定位) */
+function frameBox(snap, kind){
+  const f = SPRITES.frames[frameIdFor(snap)];
+  const bs = f[kind];
+  if (!bs || !bs.length) return null;
+  const b = bs[0];
+  return [ (snap.axFp >> 8) - f.anchorX + b.x, (snap.ayFp >> 8) - f.anchorY + b.y, b.w, b.h ];
+}
+function boxOverlap(a, b){
+  return a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+}
+/* ③ 统一解析: 读快照, 返回本tick要落地的效果列表; 命中事件用 (interaction.id, eventId) 去重 */
+function resolvePair(sA, sB, dA, dB){
+  const fx = [];
+  const kickA = sA.state === ST.KICK || dA.startKick;
+  const kickB = sB.state === ST.KICK || dB.startKick;
+  if (kickA || kickB){
+    if (!interaction){
+      interaction = { id: nextIid++, kind: 'KICK', phase: 'STARTUP', pairTick: 0,
+                      aId: sA.id, bId: sB.id, aRole: 'attacker', bRole: 'defender',
+                      pairAnchor: [0, 0], facing: 1, drawOrder: [sA.id, sB.id], appliedEvents: {} };
+    } else interaction.pairTick++;
+    interaction.aRole = kickA ? 'attacker' : 'defender';
+    interaction.bRole = kickB ? 'attacker' : 'defender';
+    interaction.pairAnchor = [ (sA.axFp + sB.axFp) >> 1, (sA.ayFp + sB.ayFp) >> 1 ];
+    interaction.facing = kickA ? sA.dir : sB.dir;
+    interaction.drawOrder = kickA ? [sB.id, sA.id] : [sA.id, sB.id];   // 防守方先画, 攻击方叠在上层
+    const phA = sA.state === ST.KICK ? kickPhaseOf(sA.t) : null;
+    const phB = sB.state === ST.KICK ? kickPhaseOf(sB.t) : null;
+    interaction.phase = (phA === 'ACTIVE' || phB === 'ACTIVE') ? 'ACTIVE'
+                      : (phA === 'RECOVER' || phB === 'RECOVER') ? 'RECOVER' : 'STARTUP';
+    for (const [att, def] of [[sA, sB], [sB, sA]]){
+      if (att.state !== ST.KICK || kickPhaseOf(att.t) !== 'ACTIVE') continue;
+      const evId = 'hit:' + att.id;
+      if (interaction.appliedEvents[evId]) continue;
+      const hb = frameBox(att, 'hitbox'), db = frameBox(def, 'hurtbox');
+      if (hb && db && boxOverlap(hb, db)){
+        interaction.appliedEvents[evId] = true;
+        fx.push({ type: 'HIT', targetId: def.id, knockDir: def.axFp >= att.axFp ? 1 : -1 });
+      }
+    }
+  } else if (interaction){
+    interaction = null;
+  }
+  return fx;
+}
+function applyFx(fx){
+  const T = ORIGINAL_TUNING;
+  for (const e of fx){
+    if (e.type !== 'HIT') continue;
+    const c = e.targetId === 'yy' ? yy : dad;
+    c.hpFp = Math.max(0, c.hpFp - T.kickDamageFp);
+    c.state = ST.HIT; c.t = 0; c.hitDir = e.knockDir; c.boostFp = 0;
+    spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+  }
+}
+/* 逐tick状态hash(FNV-1a): 覆盖比赛/双方角色/粒子/交互, 供确定性双跑自检 */
+function hashState(){
+  let h = 0x811c9dc5;
+  const mix = v => {
+    const s = String(v);
+    for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    h ^= 124; h = Math.imul(h, 0x01000193);
+  };
+  mix(tickCount); mix(MATCH.ticksLeft); mix(MATCH.phase);
+  for (const c of [yy, dad]){
+    mix(c.axFp); mix(c.ayFp); mix(c.state); mix(c.t); mix(c.dir); mix(c.hpFp);
+    mix(c.airFp); mix(c.boostFp); mix(c.uwPose); mix(c.hitDir); mix(c.iid);
+  }
+  for (const p of parts){ mix(p.type); mix(p.xFp); mix(p.yFp); mix(p.t); }
+  if (interaction){
+    mix(interaction.id); mix(interaction.kind); mix(interaction.phase); mix(interaction.pairTick);
+    for (const k in interaction.appliedEvents) mix(k);
+  }
+  return h >>> 0;
+}
+
+/* =====================================================
+   B1: 比赛流程 — 倒计时 / HP / 胜负判定
+   硬标准(规则性事实): 3:00 倒计时; 氧气归零进气绝并持续掉血;
+                      HP归零判负; 时间到按HP高者胜, 同分平局。
+   ===================================================== */
+const MATCH = { ticksLeft: ORIGINAL_TUNING.matchTicks, phase:'FIGHT', winner:null, overT:0 };
+function resetMatch(){
+  const T = ORIGINAL_TUNING;
+  MATCH.ticksLeft = T.matchTicks; MATCH.phase = 'FIGHT'; MATCH.winner = null; MATCH.overT = 0;
+  const spawn = [[yy, FP(94), 1], [dad, FP(180), -1]];
+  for (const [c, x, d] of spawn){
+    c.axFp = x; c.ayFp = FOOT_SURF_Fp; c.dir = d; c.prefDir = 0;
+    c.state = ST.SURF; c.t = 0; c.boostFp = 0; c.swimT = 0; c.uwPose = 'H';
+    c.jumpDir = 0; c.jumpX0Fp = x; c.emergeFromFp = 0;
+    c.airFp = T.airMaxFp; c.hpFp = T.hpMaxFp;
+    c.hitDir = 0; c.iid = null;
+  }
+  parts.length = 0;
+  interaction = null; nextIid = 1;                   // 交互状态随比赛一起重置(确定性双跑的前提)
+}
+function endMatch(w){
+  MATCH.phase = 'OVER'; MATCH.winner = w; MATCH.overT = 0;
+  for (const c of [yy, dad])
+    if (c.hpFp <= 0){ c.state = ST.LOSE; c.t = 0; c.ayFp = FOOT_SURF_Fp; }
+}
+function resolveMatch(){
+  if (MATCH.phase !== 'FIGHT') return;
+  const a = yy.hpFp <= 0, b = dad.hpFp <= 0;
+  if (a && b) return endMatch('draw');
+  if (a) return endMatch('dad');
+  if (b) return endMatch('yy');
+  if (MATCH.ticksLeft <= 0)
+    return endMatch(yy.hpFp === dad.hpFp ? 'draw' : yy.hpFp > dad.hpFp ? 'yy' : 'dad');
+}
+
 let tickCount = 0;
 function tick(){
   tickCount++;
   if (scriptMode) applyScript(tickCount);
-  tickChar(yy, Input);
-  tickChar(dad, IDLE_INPUT);
-  tickParts();
-  Input.pA = 0; Input.pB = 0;                                  // 边沿输入每tick消费
+  if (MATCH.phase === 'FIGHT'){
+    if (MATCH.ticksLeft > 0) MATCH.ticksLeft--;
+    const sA = snapChar(yy), sB = snapChar(dad);                    // ① 冻结双方旧状态快照
+    const iA = readInput(yy), iB = readInput(dad);                  // ① 同时读取双方输入
+    const dA = decide(yy, sA, sB, iA), dB = decide(dad, sB, sA, iB); // ② 意图只读快照
+    const fx = resolvePair(sA, sB, dA, dB);                         // ③ 统一解析命中/优先级
+    tickChar(yy, iA, dA); tickChar(dad, iB, dB);                    // ④ 同时提交(各自只写自己)
+    applyFx(fx);                                                    // ④ 命中效果同一tick落地
+    yy.iid = dad.iid = interaction ? interaction.id : null;         // 交互id与对象同tick原子挂/摘
+    tickParts();
+    resolveMatch();
+  } else {
+    MATCH.overT++;
+    tickParts();
+    if (MATCH.overT > 60 && Input.pStart) resetMatch();         // 结算后 1 秒才接受重开
+  }
+  Input.pA = 0; Input.pB = 0; Input.pStart = 0;                 // 边沿输入每tick消费
 }
 
 /* ---------- 游泳者渲染 (锚点定位; 左向=阶段2 left头像数据+身体逐像素翻转; BREATH两帧头像; DIVE/UW侧脸·垂直头) ---------- */
 function drawSwimmers(){
   const T = ORIGINAL_TUNING;
-  for (const c of [yy, dad]){
-    const lay = curLay(c), body = curBody(c), head = curHead(c);
-    const uw = c.state === ST.DIVE || c.state === ST.UW || c.state === ST.EMERGE;
+  const byId = { yy, dd: dad };
+  const order = interaction ? interaction.drawOrder : ['yy', 'dd'];   // 交互中防守方先画, 攻击方叠上层
+  for (const id of order){
+    const c = byId[id];
+    const f = SPRITES.frames[frameIdFor(c)];                 // 玩法只认契约, 不认像素来源
+    const uw = c.state === ST.DIVE || c.state === ST.UW ||
+               c.state === ST.EMERGE || c.state === ST.DROWN ||
+               c.state === ST.KICK || c.state === ST.HIT;
     const colors = colorsFor(c, uw);
     const bob = (c.state === ST.SURF || c.state === ST.BREATH) &&
                 Math.floor(c.t / T.floatBobTicks) % 2 ? T.floatBobPx : 0;
-    const ox = (c.axFp >> 8) - lay.anchorX;                  // 绘制原点=锚点-锚点偏移
-    const oy = (c.ayFp >> 8) - lay.anchorY + bob;
-    const bx = c.dir > 0 ? ox + lay.body[0] : ox + lay.w - lay.body[0] - 16;
-    const hx = c.dir > 0 ? ox + lay.head[0] : ox + lay.w - lay.head[0] - 24;
-    drawPart(body, bx, oy + lay.body[1], colors, c.dir < 0);
-    drawPart(head, hx, oy + lay.head[1] + headDyFor(c), colors, false);
+    drawFrame(f, (c.axFp >> 8) - f.anchorX, (c.ayFp >> 8) - f.anchorY + bob, colors, uw);
   }
   for (const p of parts){
     const px = p.xFp >> 8, py = p.yFp >> 8;
@@ -1054,7 +1451,28 @@ function drawSwimmers(){
   }
 }
 
-/* ---------- HUD/* ---------- HUD (y 168..223, 黑底白框, 8x8 字体节奏) ---------- */
+/* ---------- HUD (y 168..223, 黑底白框, 8x8 字体节奏) ---------- */
+function fmtTime(ticks){                              // 10800 tick = 3:00 @60Hz
+  const s = Math.ceil(Math.max(0, ticks) / 60), m = (s / 60) | 0, ss = s % 60;
+  return m + ':' + (ss < 10 ? '0' : '') + ss;
+}
+function barW(vFp, maxFp, w){ return Math.max(0, Math.min(w, (vFp * w / maxFp) | 0)); }
+
+/* 结算横幅 (完整败北演出/结算画面属 B4) */
+function drawResult(){
+  if (MATCH.phase !== 'OVER') return;
+  const msg = MATCH.winner === 'yy' ? 'YANGYANG WIN' : MATCH.winner === 'dad' ? 'DAD WIN' : 'DRAW';
+  const hint = 'PRESS ENTER';
+  const w = Math.max(textW(msg), textW(hint)) + 16, x = 128 - (w >> 1), y = 54;
+  ctx.fillStyle = PAL.black; ctx.fillRect(x, y, w, 28);
+  ctx.fillStyle = PAL.white;
+  ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + 27, w, 1);
+  ctx.fillRect(x, y, 1, 28); ctx.fillRect(x + w - 1, y, 1, 28);
+  drawTextC(msg, 128, y + 5, PAL.white);
+  if (MATCH.overT > 60 && ((MATCH.overT / 30) | 0) % 2 === 0)
+    drawTextC(hint, 128, y + 17, PAL.white);
+}
+
 function drawHUD(){
   ctx.fillStyle = PAL.black; ctx.fillRect(0, HUD_Y, LW, LH - HUD_Y);
   /* 双线白框 x10..245 / y169..218 */
@@ -1069,13 +1487,13 @@ function drawHUD(){
   drawTextC('TIME', 124, 175, PAL.white);
   drawText('CPU', 146, 175, PAL.white);
   drawText('DAD', 178, 175, PAL.white);
-  /* 倒计时 (初始 3:00) */
-  drawTextC('3:00', 124, 183, PAL.white);
-  /* HP 行 (满槽) */
+  /* 倒计时 (3:00 → 0:00, 硬标准) */
+  drawTextC(fmtTime(MATCH.ticksLeft), 124, 183, PAL.white);
+  /* HP 行 (跟随角色 hp; 双方均从左向右减少) */
   drawText('HP', 25, 191, PAL.white);
-  ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 191, 60, 7);
+  ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 191, barW(yy.hpFp, ORIGINAL_TUNING.hpMaxFp, 60), 7);
   drawText('HP', 150, 191, PAL.white);
-  ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 191, 61, 7);
+  ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 191, barW(dad.hpFp, ORIGINAL_TUNING.hpMaxFp, 61), 7);
   /* Oxy 行 (跟随角色 air) */
   drawText('Oxy', 17, 208, PAL.white);
   ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 208, (yy.airFp * 63 / ORIGINAL_TUNING.airMaxFp) | 0, 7);
@@ -1089,6 +1507,7 @@ function render(){
   drawBackground();
   drawPool();
   drawSwimmers();
+  drawResult();
   drawHUD();
   dctx.drawImage(sc, 0, 0, LW, LH, 0, 0, LW, LH);
 }
@@ -1119,6 +1538,34 @@ function spriteWidthErrors(){
   for (const who in HEAD_SIDE) for (const d in HEAD_SIDE[who]) check('HEAD_SIDE.' + who + '.' + d, HEAD_SIDE[who][d]);
   for (const who in HEAD_DOWN) for (const d in HEAD_DOWN[who]) check('HEAD_DOWN.' + who + '.' + d, HEAD_DOWN[who][d]);
   SPLASH.forEach((m, i) => check('SPLASH[' + i + ']', m));
+  /* SPRITES 契约自检: 每帧行数=h、每行宽=w、锚点在帧内、实心非空、字符全部在调色键内 */
+  const semantic = new Set(['.', 'O', 'W', 'S', 's', 'd', 'C', 'c', 'H', 'h', 'T', 'L']);
+  for (const id in SPRITES.frames){
+    const f = SPRITES.frames[id];
+    if (f.rows.length !== f.h) bad.push(id + ' rows=' + f.rows.length + '!=h' + f.h);
+    f.rows.forEach((r, i) => { if (r.length !== f.w) bad.push(id + ' row' + i + ' ' + r.length + '!=w' + f.w); });
+    if (f.anchorX < 0 || f.anchorX > f.w || f.anchorY < 0 || f.anchorY > f.h) bad.push(id + ' 锚点出帧');
+    if (!f.bbox) bad.push(id + ' 空帧');
+    /* 占位帧用语义调色键(由 colorsFor 上色); 正式帧用调色板索引键(由 f.pal 上色) */
+    const keys = f.pal ? new Set(['.'].concat(Object.keys(f.pal))) : semantic;
+    let illegal = null;
+    for (const r of f.rows){ for (const ch of r) if (!keys.has(ch)){ illegal = ch; break; } if (illegal) break; }
+    if (illegal) bad.push(id + ' 非法调色键 ' + illegal);
+    /* 判定盒: 必须是独立数据, hurtbox 每帧必备; KICK 起手帧无hitbox/有效帧必有 */
+    if (!f.hurtbox || !f.hurtbox.length) bad.push(id + ' 缺hurtbox');
+    if ((f.hurtbox || []).concat(f.hitbox || []).some(b => b && b.provisional !== undefined))
+      bad.push(id + ' 判定盒仍带provisional标记');
+    const act = id.split('.')[1], fidx = id.split('.')[3];
+    if (act === 'KICK' && fidx === '1' && (!f.hitbox || !f.hitbox.length)) bad.push(id + ' 有效相位缺hitbox');
+    if (act === 'KICK' && fidx === '0' && f.hitbox) bad.push(id + ' 起手/收招相位不应有hitbox');
+  }
+  /* 每个动作 × 2角色 × 2朝向 必须齐全 */
+  const acts = new Set();
+  for (const id in SPRITES.frames) acts.add(id.split('.')[1] + '.' + id.split('.')[3]);
+  for (const a of acts) for (const av of ['yy', 'dd']) for (const d of ['R', 'L']){
+    const [act, idx] = a.split('.');
+    if (!SPRITES.frames[av + '.' + act + '.' + d + '.' + idx]) bad.push('缺帧 ' + av + '.' + act + '.' + d + '.' + idx);
+  }
   return bad;
 }
 
@@ -1133,25 +1580,10 @@ if (qs.has('selftest')){
   const T = ORIGINAL_TUNING;
   const errs = spriteWidthErrors();
   /* 实际非透明像素世界bbox(与drawSwimmers同一定位: 身体左向逐像素翻转, 头像用left烘焙数据, 不再只看LAY逻辑框) */
-  function worldBBox(c){
-    const lay = curLay(c), body = curBody(c), head = curHead(c);
-    const ox = (c.axFp >> 8) - lay.anchorX, oy = (c.ayFp >> 8) - lay.anchorY;
-    const mir = c.dir < 0;
-    const bx = mir ? ox + lay.w - lay.body[0] - 16 : ox + lay.body[0];
-    const hx = mir ? ox + lay.w - lay.head[0] - 24 : ox + lay.head[0];
-    const hy = oy + lay.head[1] + headDyFor(c), by = oy + lay.body[1];
-    let x0 = 999, y0 = 999, x1 = -1, y1 = -1;
-    for (let r = 0; r < 24; r++) for (let q = 0; q < 24; q++)
-      if (head[r][q] !== '.'){
-        const x = hx + q, y = hy + r;
-        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-      }
-    for (let r = 0; r < 16; r++) for (let q = 0; q < 16; q++)
-      if (body[r][q] !== '.'){
-        const x = bx + (mir ? 15 - q : q), y = by + r;
-        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-      }
-    return [x0, y0, x1, y1];
+  function worldBBox(c){                       // 直接读 SPRITES 契约的实心外接框(与渲染同一份数据)
+    const f = SPRITES.frames[frameIdFor(c)];
+    const ox = (c.axFp >> 8) - f.anchorX, oy = (c.ayFp >> 8) - f.anchorY, b = f.bbox;
+    return b ? [ox + b.x, oy + b.y, ox + b.x + b.w - 1, oy + b.y + b.h - 1] : [ox, oy, ox, oy];
   }
   const snapOf = () => [yy.axFp, yy.ayFp, yy.state, yy.airFp, dad.axFp, dad.ayFp, dad.state, dad.airFp].join(',');
   /* A. 无输入300tick: 锚点/状态/Oxy完全不变, 无粒子 */
@@ -1160,7 +1592,7 @@ if (qs.has('selftest')){
   if (snapOf() !== s0) errs.push('idle300 drift: ' + s0 + ' -> ' + snapOf());
   if (parts.length) errs.push('idle300 parts=' + parts.length);
   /* B. 贴边回归: ax=20/236, 无横向输入驱动全状态循环; ax零漂移+脚底连续+全整数+不裁图 */
-  for (const x0 of [20, 236]){
+  for (const x0 of [ANCHOR_X_MIN_Fp >> 8, ANCHOR_X_MAX_Fp >> 8]){   // 钳制带边界随资产走
     const c = mkChar(FP(x0), 1, 'yy', '#3C9CF0');
     const inp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
     let clip = null; const seen = [];
@@ -1288,7 +1720,11 @@ if (qs.has('selftest')){
     if (pre === ST.DIVE && cur === ST.UW && ay1 !== T.uwTopFp)
       errs.push(`DIVE→UW 脚底=${ay1 / 256} (应120)`);
   }
-  const at = t => tr[t];
+  /* 轨迹早退保护: 上面的循环在 errs>12 时会 break, 此时 tr 不足长。
+     旧代码直接 tr[t].st 会抛异常 → 自检既不 PASS 也不 FAIL, 只留一个空白标题(排查代价极高)。
+     改为返回哨兵, 让自检把真正的首个错误报出来。 */
+  const at = t => tr[t] || { st:'<轨迹早退>', ax:0, ay:0, boost:0, air:0, pose:'-' };
+  if (tr.length < 800) errs.push('轨迹早退: 只跑到 tick' + tr.length + ' (上游断言已失败, 见前面的错误)');
   /* 跳跃: 首跳垂直dx=0; 预选右+≥15px; 预选左-≤-15px */
   if (jumps.length !== 3) errs.push('jumps=' + jumps.length + ' (应3: 垂直/右/左)');
   if (jumps[0] && (jumps[0][0] !== 0 || jumps[0][1] !== 0)) errs.push('垂直跳 dir=' + jumps[0][0] + ' dx=' + jumps[0][1]);
@@ -1351,6 +1787,62 @@ if (qs.has('selftest')){
   /* Oxy: 水下耗氧(400<376); 水面自然恢复(630>601) */
   if (!(at(400).air < at(376).air)) errs.push('水下未耗氧');
   if (!(at(630).air > at(601).air)) errs.push('水面未自然回氧');
+  /* D. B2踢击: 水下pB→KICK三相位; ACTIVE相位命中→对方扣HP+进HIT+击退;
+       命中事件去重(HP只扣一次); interaction建立/结束原子(角色iid同步挂摘) */
+  {
+    resetMatch(); scriptMode = null;
+    yy.state = ST.UW; yy.t = 0; yy.uwPose = 'H'; yy.axFp = FP(120); yy.ayFp = FP(140); yy.dir = 1;
+    dad.state = ST.UW; dad.t = 0; dad.uwPose = 'H'; dad.axFp = FP(140); dad.ayFp = FP(140); dad.dir = -1;
+    const hpD0 = dad.hpFp, dadX0 = dad.axFp;
+    Input.pB = 1; Input.B = 1; tick(); Input.pB = 0; Input.B = 0;
+    if (yy.state !== ST.KICK) errs.push('踢击: 水下pB未进KICK 实际' + yy.state);
+    if (!interaction || interaction.kind !== 'KICK') errs.push('踢击: interaction未建立');
+    if (interaction && (yy.iid !== interaction.id || dad.iid !== interaction.id))
+      errs.push('踢击: 双方iid未原子挂到interaction');
+    const iid0 = interaction ? interaction.id : -1;
+    let hitTick = -1;
+    for (let i = 0; i < 60 && hitTick < 0; i++){ tick(); if (dad.state === ST.HIT) hitTick = i; }
+    if (hitTick < 0) errs.push('踢击: 对方未进HIT');
+    if (dad.hpFp !== hpD0 - T.kickDamageFp)
+      errs.push('踢击: 命中应恰好扣一次HP ' + (hpD0 / 256) + '->' + (dad.hpFp / 256));
+    if (hitTick >= 0 && interaction && !interaction.appliedEvents['hit:yy'])
+      errs.push('踢击: 命中事件未记入appliedEvents');
+    for (let i = 0; i < 60 && (yy.state === ST.KICK || dad.state === ST.HIT); i++) tick();
+    tick(); tick();                                    // resolvePair 在下一tick的快照上才看到双方都不踢
+    if (interaction) errs.push('踢击: 踢击结束后interaction未清空');
+    if (yy.iid !== null || dad.iid !== null) errs.push('踢击: 结束后双方iid未原子摘除');
+    if (!(dad.axFp > dadX0)) errs.push('踢击: 受击方未被击退');
+    /* 双方同tick起手: 快照结算下应互相命中双双扣血(旧顺序结算会让后tick者白挨打) */
+    resetMatch();
+    yy.state = ST.UW; yy.t = 0; yy.uwPose = 'H'; yy.axFp = FP(120); yy.ayFp = FP(140); yy.dir = 1;
+    dad.state = ST.UW; dad.t = 0; dad.uwPose = 'H'; dad.axFp = FP(140); dad.ayFp = FP(140); dad.dir = -1;
+    dad.input = '1P';
+    Input.pB = 1; Input.B = 1; tick(); Input.pB = 0; Input.B = 0;
+    if (yy.state !== ST.KICK || dad.state !== ST.KICK)
+      errs.push('踢击: 同时起手失败 yy=' + yy.state + ' dad=' + dad.state);
+    for (let i = 0; i < 30; i++) tick();
+    if (!(yy.hpFp < T.hpMaxFp && dad.hpFp < T.hpMaxFp))
+      errs.push('踢击: 同时起手未双向命中(存在先手偏差) yy=' + (yy.hpFp / 256) + ' dad=' + (dad.hpFp / 256));
+    dad.input = 'IDLE';
+    resetMatch();
+  }
+  parts.length = 0;
+  /* E2. 确定性双跑: 同一初始状态+同一输入流(demo脚本), 逐tick状态hash完全一致 */
+  {
+    const runs = [];
+    for (let run = 0; run < 2; run++){
+      resetMatch(); scriptMode = 'demo'; tickCount = 0;
+      const hs = [];
+      for (let i = 0; i < 900; i++){ tick(); hs.push(hashState()); }
+      runs.push(hs);
+    }
+    scriptMode = null;
+    let diffAt = -1;
+    for (let i = 0; i < 900; i++) if (runs[0][i] !== runs[1][i]){ diffAt = i; break; }
+    if (diffAt >= 0) errs.push('确定性双跑分叉@tick' + diffAt);
+    resetMatch();
+  }
+  parts.length = 0;
   /* E. 10万tick确定性压力: LCG伪随机输入(imul精确低32位, 禁Math.random), 全程整数/锚点域内/实际像素不裁图 */
   let stressOk = true;
   {

@@ -1,0 +1,458 @@
+{
+  "schemaVersion": 1,
+  "stage": "CONCEPT-ACTION-0-P0",
+  "reviewState": "machine-validated-pending-user-visual-review",
+  "scope": {
+    "poses": [
+      "SURF0",
+      "JUMP_AIR",
+      "UW_NORMAL"
+    ],
+    "characters": [
+      "yy",
+      "dad"
+    ],
+    "directions": "one evidenced source direction only",
+    "integratedIntoGame": false,
+    "animation": false
+  },
+  "identityLock": {
+    "stage": "CONCEPT-MODEL-LOCK",
+    "reviewState": "user-approved-v1",
+    "failedDraftPixelsReused": false
+  },
+  "privacy": "pure local; formal sprites are code-authored; ignored board may contain local reference crops; nothing uploaded",
+  "alphaContract": [
+    0,
+    255
+  ],
+  "palette": {
+    "id": "CONCEPT_ACTION_P0_V1",
+    "rgba": [
+      [
+        18,
+        24,
+        34,
+        255
+      ],
+      [
+        43,
+        43,
+        50,
+        255
+      ],
+      [
+        196,
+        91,
+        39,
+        255
+      ],
+      [
+        255,
+        166,
+        83,
+        255
+      ],
+      [
+        255,
+        205,
+        132,
+        255
+      ],
+      [
+        238,
+        112,
+        64,
+        255
+      ],
+      [
+        255,
+        248,
+        226,
+        255
+      ],
+      [
+        38,
+        93,
+        139,
+        255
+      ],
+      [
+        25,
+        25,
+        29,
+        255
+      ],
+      [
+        18,
+        76,
+        145,
+        255
+      ],
+      [
+        34,
+        132,
+        222,
+        255
+      ],
+      [
+        92,
+        190,
+        246,
+        255
+      ],
+      [
+        174,
+        232,
+        255,
+        255
+      ],
+      [
+        12,
+        15,
+        20,
+        255
+      ],
+      [
+        48,
+        46,
+        44,
+        255
+      ],
+      [
+        25,
+        30,
+        40,
+        255
+      ],
+      [
+        49,
+        56,
+        69,
+        255
+      ]
+    ]
+  },
+  "frames": [
+    {
+      "id": "SURF0_yy",
+      "file": "SURF0_yy.png",
+      "character": "yy",
+      "pose": "SURF0",
+      "sourceFrame": {
+        "file": "jp-action-e.gif",
+        "frame": 0,
+        "cropXYXYExclusive": [
+          105,
+          88,
+          136,
+          109
+        ],
+        "evidence": "locked official still"
+      },
+      "movementVector": {
+        "x": -1,
+        "y": 0,
+        "confidence": "pose-direction candidate; still has no timing"
+      },
+      "bodyAxis": "screen-left/front to screen-right/rear, slightly descending",
+      "bodyYawToCamera": "front-left three-quarter; rear shoulder recedes to screen-right",
+      "headYawToCamera": "near frontal with slight screen-left turn; both eyes visible",
+      "nearFarLimbOrder": [
+        "far trailing body/arm",
+        "torso",
+        "near sweeping forearm",
+        "head/face"
+      ],
+      "waterlineOrDepthPlane": "surface plane crosses below shoulders; sprite excludes water pixels",
+      "root": [
+        81,
+        84
+      ],
+      "visibleBBox": [
+        19,
+        24,
+        137,
+        88
+      ],
+      "bboxConvention": "xyxyInclusive",
+      "canvas": [
+        160,
+        128
+      ],
+      "palette": "CONCEPT_ACTION_P0_V1",
+      "sha256": "f95651b730563bbc2be18ae5e56ec3ce63be5bec4ca0e9959ccdffab18fa1357"
+    },
+    {
+      "id": "SURF0_dad",
+      "file": "SURF0_dad.png",
+      "character": "dad",
+      "pose": "SURF0",
+      "sourceFrame": {
+        "file": "jp-action-e.gif",
+        "frame": 0,
+        "cropXYXYExclusive": [
+          105,
+          88,
+          136,
+          109
+        ],
+        "evidence": "locked official still"
+      },
+      "movementVector": {
+        "x": -1,
+        "y": 0,
+        "confidence": "pose-direction candidate; still has no timing"
+      },
+      "bodyAxis": "screen-left/front to screen-right/rear, slightly descending",
+      "bodyYawToCamera": "front-left three-quarter; rear shoulder recedes to screen-right",
+      "headYawToCamera": "near frontal with slight screen-left turn; both eyes visible",
+      "nearFarLimbOrder": [
+        "far trailing body/arm",
+        "torso",
+        "near sweeping forearm",
+        "head/face"
+      ],
+      "waterlineOrDepthPlane": "surface plane crosses below shoulders; sprite excludes water pixels",
+      "root": [
+        91,
+        93
+      ],
+      "visibleBBox": [
+        15,
+        23,
+        149,
+        98
+      ],
+      "bboxConvention": "xyxyInclusive",
+      "canvas": [
+        160,
+        128
+      ],
+      "palette": "CONCEPT_ACTION_P0_V1",
+      "sha256": "03b8c580a5f347edfbcb01cce60cd945fd1571b470bd9115d2659289ddd28b3a"
+    },
+    {
+      "id": "JUMP_AIR_yy",
+      "file": "JUMP_AIR_yy.png",
+      "character": "yy",
+      "pose": "JUMP_AIR",
+      "sourceFrame": {
+        "file": "jp-action-c.gif",
+        "frame": 0,
+        "cropXYXYExclusive": [
+          73,
+          35,
+          128,
+          77
+        ],
+        "evidence": "locked official still"
+      },
+      "movementVector": {
+        "x": null,
+        "y": -1,
+        "confidence": "vertical lift implied; horizontal component not established by still"
+      },
+      "bodyAxis": "near vertical, head above pelvis, slight diagonal compression",
+      "bodyYawToCamera": "front-facing; not a profile jump",
+      "headYawToCamera": "front-facing; both eyes visible",
+      "nearFarLimbOrder": [
+        "screen-left descending arm/far leg",
+        "torso",
+        "downward near leg",
+        "screen-right raised arm",
+        "head/face"
+      ],
+      "waterlineOrDepthPlane": "airborne; no water plane intersects the sprite",
+      "root": [
+        67,
+        109
+      ],
+      "visibleBBox": [
+        20,
+        16,
+        106,
+        112
+      ],
+      "bboxConvention": "xyxyInclusive",
+      "canvas": [
+        128,
+        128
+      ],
+      "palette": "CONCEPT_ACTION_P0_V1",
+      "sha256": "0c8039374e3816abfcaf470826ad5b9f46cc5eb252cfa7cb60d862aa974e88b0"
+    },
+    {
+      "id": "JUMP_AIR_dad",
+      "file": "JUMP_AIR_dad.png",
+      "character": "dad",
+      "pose": "JUMP_AIR",
+      "sourceFrame": {
+        "file": "jp-action-c.gif",
+        "frame": 0,
+        "cropXYXYExclusive": [
+          73,
+          35,
+          128,
+          77
+        ],
+        "evidence": "locked official still"
+      },
+      "movementVector": {
+        "x": null,
+        "y": -1,
+        "confidence": "vertical lift implied; horizontal component not established by still"
+      },
+      "bodyAxis": "near vertical, head above pelvis, slight diagonal compression",
+      "bodyYawToCamera": "front-facing; not a profile jump",
+      "headYawToCamera": "front-facing; both eyes visible",
+      "nearFarLimbOrder": [
+        "screen-left descending arm/far leg",
+        "torso",
+        "downward near leg",
+        "screen-right raised arm",
+        "head/face"
+      ],
+      "waterlineOrDepthPlane": "airborne; no water plane intersects the sprite",
+      "root": [
+        70,
+        119
+      ],
+      "visibleBBox": [
+        13,
+        11,
+        112,
+        121
+      ],
+      "bboxConvention": "xyxyInclusive",
+      "canvas": [
+        128,
+        128
+      ],
+      "palette": "CONCEPT_ACTION_P0_V1",
+      "sha256": "1dcc1b1714a8f65ac255a632e7dd8a0dea7145a0744e9e8e0a283c2566d819d4"
+    },
+    {
+      "id": "UW_NORMAL_yy",
+      "file": "UW_NORMAL_yy.png",
+      "character": "yy",
+      "pose": "UW_NORMAL",
+      "sourceFrame": {
+        "file": "jp-action-b.gif",
+        "frame": 0,
+        "cropXYXYExclusive": [
+          99,
+          141,
+          138,
+          162
+        ],
+        "evidence": "locked official still; bubble components excluded"
+      },
+      "movementVector": {
+        "x": 1,
+        "y": 0,
+        "confidence": "single source-direction candidate"
+      },
+      "bodyAxis": "screen-left/rear to screen-right/front, near horizontal",
+      "bodyYawToCamera": "front-right three-quarter despite horizontal body axis; not pure side-on",
+      "headYawToCamera": "front-right three-quarter; both eyes remain readable",
+      "nearFarLimbOrder": [
+        "far trailing legs",
+        "torso",
+        "far lower arm",
+        "head",
+        "near projecting arm/fist"
+      ],
+      "waterlineOrDepthPlane": "fully underwater; body lies on a shallow diagonal depth plane",
+      "root": [
+        80,
+        69
+      ],
+      "visibleBBox": [
+        13,
+        22,
+        146,
+        104
+      ],
+      "bboxConvention": "xyxyInclusive",
+      "canvas": [
+        160,
+        128
+      ],
+      "palette": "CONCEPT_ACTION_P0_V1",
+      "sha256": "23e6db3d40f070cfdfeb915ca99ebcf58c4e3e53841ba4bad5dba205c073f02b"
+    },
+    {
+      "id": "UW_NORMAL_dad",
+      "file": "UW_NORMAL_dad.png",
+      "character": "dad",
+      "pose": "UW_NORMAL",
+      "sourceFrame": {
+        "file": "jp-action-b.gif",
+        "frame": 0,
+        "cropXYXYExclusive": [
+          99,
+          141,
+          138,
+          162
+        ],
+        "evidence": "locked official still; bubble components excluded"
+      },
+      "movementVector": {
+        "x": 1,
+        "y": 0,
+        "confidence": "single source-direction candidate"
+      },
+      "bodyAxis": "screen-left/rear to screen-right/front, near horizontal",
+      "bodyYawToCamera": "front-right three-quarter despite horizontal body axis; not pure side-on",
+      "headYawToCamera": "front-right three-quarter; both eyes remain readable",
+      "nearFarLimbOrder": [
+        "far trailing legs",
+        "torso",
+        "far lower arm",
+        "head",
+        "near projecting arm/fist"
+      ],
+      "waterlineOrDepthPlane": "fully underwater; body lies on a shallow diagonal depth plane",
+      "root": [
+        84,
+        73
+      ],
+      "visibleBBox": [
+        6,
+        20,
+        159,
+        114
+      ],
+      "bboxConvention": "xyxyInclusive",
+      "canvas": [
+        160,
+        128
+      ],
+      "palette": "CONCEPT_ACTION_P0_V1",
+      "sha256": "34540bf24bb5daaa3de42284721e409f1b055510508c519c99c58d7a62bbb6f7"
+    }
+  ],
+  "boards": {
+    "derivedSpriteReview": {
+      "file": "派生精灵审核板.png",
+      "sha256": "6b35be6524f46b0a0bb9b7ce0f54b91654fcb4ffad4d2dc04673a13af20be156"
+    },
+    "actionSkeleton": {
+      "file": "动作骨架板.png",
+      "sha256": "957268682685dbc5e995f3dc7de35e7a670be2ba203e90778fb72ecff68835bd"
+    },
+    "privateComparison": {
+      "file": "本地勿提交/FC与概念模型对照板-本地勿提交.png",
+      "ignored": true,
+      "sha256": "f7c3c151cd2a2d2dab0d42101ae72e17ed00bbd943b81945759415245b55fb73"
+    }
+  },
+  "formalGame": {
+    "file": "阳阳水泳大乱斗-原版复刻.html",
+    "expectedSha256": "412416e95bfe4c98f4b039dc4a24fd9b28c2c23989254f22ee494d2e7bcde306",
+    "actualSha256": "412416e95bfe4c98f4b039dc4a24fd9b28c2c23989254f22ee494d2e7bcde306",
+    "modified": false
+  },
+  "acceptance": "machine PASS is not visual approval; all six sprites require individual user confirmation before hash freeze"
+}

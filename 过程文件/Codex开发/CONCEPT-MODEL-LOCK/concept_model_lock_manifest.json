@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "stage": "CONCEPT-MODEL-LOCK",
+  "reviewState": "user-approved-v1",
+  "userApproval": {
+    "status": "approved",
+    "note": "人物形象可以；后续不得破坏FC原版的非横向朝向"
+  },
+  "privacy": "local-only; source references and lock board must not be committed or uploaded",
+  "identitySourcePriority": "the two existing concept images are the sole visual authority",
+  "actionSourcePriority": "FC original continuous frames are the sole authority for pose, phase, timing and pair contact",
+  "sources": {
+    "headReference": {
+      "path": "过程文件/Kimi开发/R3B-I-LikenessTest/阳阳爸爸头像方向参考-本地勿提交.png",
+      "sha256": "d43debe5c009c0dcabaa1fb55227e0e5f9d79796ca638ad5a1b06e811f7dbe5b",
+      "canonicalCrops": {
+        "yyFrontHead": [
+          540,
+          25,
+          1035,
+          570
+        ],
+        "dadFrontHead": [
+          185,
+          585,
+          700,
+          1175
+        ]
+      }
+    },
+    "multiActionReference": {
+      "path": "过程文件/Codex开发/R3B-I-P2/阳阳爸爸多动作概念参考-本地勿提交.png",
+      "sha256": "3323793e83ea6f3527d95360e4e15ca28797609651a2cfa76c905d42c9512894",
+      "labels": [
+        "surface",
+        "jump",
+        "underwaterSwim",
+        "emerge"
+      ],
+      "yyCrops": [
+        [
+          55,
+          90,
+          470,
+          410
+        ],
+        [
+          470,
+          45,
+          825,
+          410
+        ],
+        [
+          815,
+          105,
+          1275,
+          410
+        ],
+        [
+          1260,
+          75,
+          1715,
+          410
+        ]
+      ],
+      "dadCrops": [
+        [
+          45,
+          455,
+          475,
+          830
+        ],
+        [
+          470,
+          430,
+          825,
+          825
+        ],
+        [
+          815,
+          480,
+          1275,
+          820
+        ],
+        [
+          1260,
+          455,
+          1715,
+          825
+        ]
+      ]
+    }
+  },
+  "identityContract": {
+    "yy": [
+      "child with a round short face, large dark eyes with highlights, small nose and mouth, visible ears",
+      "rounded blue swim cap with dark/light blue panels and top highlights",
+      "complete white-framed two-lens goggles with dark lenses, bridge and strap",
+      "blue swimsuit, compact child proportions, rounded hands and feet"
+    ],
+    "dad": [
+      "adult with a slightly longer face and friendly toothy smile",
+      "short black textured hair, high forehead and closely tapered sides",
+      "thick black rounded-square glasses enclosing the eyes, with visible temples",
+      "dark swimsuit and a larger adult build than YY"
+    ],
+    "forbidden": [
+      "helmet or bowl-cut hair",
+      "helmet-like swim cap or square goggle panels",
+      "box torso, line limbs, generic replacement face",
+      "changing identity proportions or costume structure to accommodate an action"
+    ]
+  },
+  "orientationContract": {
+    "authority": "FC original frame-by-frame evidence only",
+    "rules": [
+      "movement direction, body axis, head direction and camera-facing angle are separate values",
+      "L/R names are action-direction variants and must not be interpreted as mandatory pure profile views",
+      "preserve the front-facing or three-quarter camera orientation visible in each FC source frame",
+      "the horizontal poses in the concept sheet lock identity and rendering style only; they are not orientation references",
+      "no automatic mirroring when it changes face visibility, near/far limb order, foreshortening or pool perspective"
+    ],
+    "requiredPerFrameFields": [
+      "sourceFrame",
+      "movementVector",
+      "bodyAxis",
+      "bodyYawToCamera",
+      "headYawToCamera",
+      "nearFarLimbOrder",
+      "waterlineOrDepthPlane"
+    ]
+  },
+  "runtimeSizing": {
+    "status": "not locked by the model sheet",
+    "rule": "do not simplify the locked identity to satisfy a low pixel budget; validate runtime size with the first FC-pose translation"
+  },
+  "outputs": {
+    "localLockBoard": "人物模型定档总表-本地勿提交.png",
+    "localLockBoardSha256": "ee56dc8c29463e00c733da0b82a81eab6c3d848f7a85795aded300bbd1a615de"
+  }
+}
