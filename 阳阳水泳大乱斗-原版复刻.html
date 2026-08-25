@@ -1981,7 +1981,7 @@ if (qs.has('selftest')){
          顺带断言: 双方同时进入 / 出拳扣血恰好两拳 / 松开后有限tick内解开 / 全程一个interaction */
   {
     const run = () => {
-      resetMatch(); scriptMode = null;
+      resetMatch(); scriptMode = null; tickCount = 0;
       yy.state = ST.UW; yy.t = 0; yy.uwPose = 'H'; yy.dir = 1; yy.axFp = FP(110); yy.ayFp = FP(140);
       dad.state = ST.UW; dad.t = 0; dad.uwPose = 'H'; dad.dir = -1; dad.axFp = FP(130); dad.ayFp = FP(140);
       const hs = []; const iids = new Set();

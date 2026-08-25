@@ -153,6 +153,33 @@ function checkGrapple(file) {
 /* ============================ 观察项 ============================ */
 /* 这些只打印，永不挡路。数字变化说明手感变了，但不代表做错了。 */
 
+/* O0. 被肩组住的一方还有没有活路（台账 S-07）
+   verify 的「肩组」阻塞项测的是"双方都松手"这条脱离路径，但实战里攻击方不会松手，
+   而 idleN 会被**任何一方**的输入清零 —— 所以那条路径在真实对局中永远不触发。
+   这里量的是实战数值：被抓住之后能撑多久、有没有脱身路径。 */
+function obsGrappleSurvival(file) {
+  const { api: A } = loadGame(file);
+  if (!A.ST.GRAPPLE) return '未实现';
+  const isG = s => typeof s === 'string' && s.indexOf('GRAPPLE') >= 0;
+  A.resetMatch();
+  A.yy.state = A.ST.UW; A.yy.uwPose = 'H'; A.yy.dir = 1;
+  A.yy.axFp = 110 * 256; A.yy.ayFp = 140 * 256;
+  A.dad.state = A.ST.UW; A.dad.uwPose = 'H'; A.dad.dir = -1;
+  A.dad.axFp = 130 * 256; A.dad.ayFp = 140 * 256;
+  A.Input.R = 1;
+  for (let i = 0; i < 200; i++) { A.tick(); if (isG(A.yy.state) && isG(A.dad.state)) break; }
+  A.Input.R = 0;
+  if (!isG(A.dad.state)) return '(没能进入肩组，测不了)';
+
+  for (let n = 0; n < 1800; n++) {                       // 攻击方持续出拳，防守方不动
+    A.Input.B = n % 8 < 4 ? 1 : 0; A.Input.pB = (n % 8 === 0) ? 1 : 0;
+    A.tick();
+    if (A.dad.hpFp <= 0) return `被抓住后 ${((n + 1) / 60).toFixed(1)} 秒内被打死，期间无脱身路径`;
+    if (!isG(A.dad.state)) return `被抓住后 ${((n + 1) / 60).toFixed(1)} 秒脱身，剩余HP ${A.dad.hpFp / 256}`;
+  }
+  return '30 秒内既没死也没脱身';
+}
+
 /* O1. 判定盒左右镜像是否对称（台账 S-06） */
 function obsMirror(file) {
   const { api: A } = loadGame(file);
@@ -217,7 +244,9 @@ for (const b of BUILDS) {
     if (!r.ok) failed++;
   }
 
-  for (const [name, fn] of [['判定盒镜像', obsMirror], ['判定盒覆盖率', obsCoverage]]) {
+  const obs = [['被肩组后的活路', obsGrappleSurvival], ['判定盒镜像', obsMirror],
+               ['判定盒覆盖率', obsCoverage]];
+  for (const [name, fn] of obs) {
     let s;
     try { s = fn(file); } catch (e) { s = '(测不了：' + e.message + ')'; }
     console.log(`  观察  ${name}：${s}`);
