@@ -177,16 +177,47 @@ function checkGrappleCounterplay(file) {
   if (!isG(A.dad.state)) return { ok: false, note: '没能进入肩组，无法测试' };
 
   A.dad.input = 'TEST';                               // 防守方从此刻起独立操作
+  const run = struggle => {
+    for (let n = 0; n < 1800; n++) {
+      A.Input.B = n % 8 < 4 ? 1 : 0;  A.Input.pB = (n % 8 === 0) ? 1 : 0; // 攻击方一直出拳
+      foe.B = struggle && n % 6 < 3 ? 1 : 0;
+      foe.pB = struggle && n % 6 === 0 ? 1 : 0;                            // 防守方是否挣扎
+      A.tick();
+      if (A.dad.hpFp <= 0) return { esc: false, s: (n + 1) / 60 };
+      if (!isG(A.dad.state)) return { esc: true, s: (n + 1) / 60 };
+    }
+    return { esc: null, s: 30 };
+  };
+
+  const st = run(true);
+  if (!st.esc)
+    return { ok: false, note: `连打挣扎仍${st.esc === null ? '卡住不动' : '被打死'}（${st.s.toFixed(1)} 秒），挣扎无效` };
+
+  // 反向验证：不挣扎就不该能脱身，否则"挣扎"只是个摆设（纯计时器也能骗过上一条）
+  const { api: B } = loadGame(file);                   // 换一份干净的世界重来
+  B.InputSources.TEST = () => foe;
+  const isG2 = isG;
+  B.resetMatch();
+  B.yy.state = B.ST.UW; B.yy.uwPose = 'H'; B.yy.dir = 1;
+  B.yy.axFp = 110 * 256; B.yy.ayFp = 140 * 256;
+  B.dad.state = B.ST.UW; B.dad.uwPose = 'H'; B.dad.dir = -1;
+  B.dad.axFp = 130 * 256; B.dad.ayFp = 140 * 256;
+  B.Input.R = 1;
+  for (let i = 0; i < 200; i++) { B.tick(); if (isG2(B.yy.state) && isG2(B.dad.state)) break; }
+  B.Input.R = 0;
+  B.dad.input = 'TEST';
+  let idleEsc = null, idleS = 30;
   for (let n = 0; n < 1800; n++) {
-    A.Input.B = n % 8 < 4 ? 1 : 0;  A.Input.pB = (n % 8 === 0) ? 1 : 0;   // 攻击方连打出拳
-    foe.B     = n % 6 < 3 ? 1 : 0;  foe.pB     = (n % 6 === 0) ? 1 : 0;   // 防守方连打挣扎
-    A.tick();
-    if (A.dad.hpFp <= 0)
-      return { ok: false, note: `连打挣扎无效：${((n + 1) / 60).toFixed(1)} 秒被打死，全程没能脱身` };
-    if (!isG(A.dad.state))
-      return { ok: true, note: `连打挣扎 ${((n + 1) / 60).toFixed(1)} 秒脱身，剩余HP ${A.dad.hpFp / 256}/${A.T.hpMaxFp / 256}` };
+    B.Input.B = n % 8 < 4 ? 1 : 0; B.Input.pB = (n % 8 === 0) ? 1 : 0;
+    foe.B = 0; foe.pB = 0;                             // 防守方完全不动
+    B.tick();
+    if (B.dad.hpFp <= 0) { idleEsc = false; idleS = (n + 1) / 60; break; }
+    if (!isG2(B.dad.state)) { idleEsc = true; idleS = (n + 1) / 60; break; }
   }
-  return { ok: false, note: '30 秒内既没死也没脱身（纠缠上限没生效）' };
+  if (idleEsc)
+    return { ok: false, note: `挣扎 ${st.s.toFixed(1)} 秒脱身，但完全不动也能 ${idleS.toFixed(1)} 秒脱身 —— 挣扎没有意义` };
+
+  return { ok: true, note: `挣扎 ${st.s.toFixed(1)} 秒脱身（剩余HP ${A.dad.hpFp / 256}/${A.T.hpMaxFp / 256}）；不挣扎 ${idleS.toFixed(1)} 秒被打死` };
 }
 
 /* ============================ 观察项 ============================ */
