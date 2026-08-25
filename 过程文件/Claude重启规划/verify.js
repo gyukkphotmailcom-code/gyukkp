@@ -310,6 +310,42 @@ function checkLegpull(file) {
   return { ok, note: `正下方触发=true 拖拽掉氧=${drains} 远处也能触发=${far.hit}（应为false）` };
 }
 
+/* ---- B4 结算：时间到按 HP 判负时，败者必须进入 LOSE（台账 S-02 归此阶段）----
+   判据：比赛结束后败者状态为 LOSE、胜者不是 LOSE。当前是"低血但未归零的败者
+   会冻结在原状态"，所以本项现在是红的——它就是 B4 的靶子。 */
+function checkResultPose(file) {
+  const { api: A } = loadGame(file);
+  A.resetMatch();
+  A.MATCH.ticksLeft = 30;
+  A.dad.hpFp = Math.floor(A.T.hpMaxFp / 4);            // 爸爸血少 → 时间到应判他负
+  for (let i = 0; i < 400 && A.MATCH.phase === 'FIGHT'; i++) A.tick();
+  if (A.MATCH.phase === 'FIGHT') return { ok: false, note: '时间到了但比赛没结束' };
+  const ok = A.dad.state === A.ST.LOSE && A.yy.state !== A.ST.LOSE;
+  return { ok, note: `败者(爸爸)状态=${A.dad.state}（应为LOSE） 胜者(阳阳)状态=${A.yy.state}` };
+}
+
+/* ---- B5 输入源：CPU 对局必须能自己打完一整局，且两遍完全一致 ----
+   未实现时跳过。B5 的核心是 tick() 不变、只换输入源，所以判据落在
+   "换成 CPU 后整局仍是确定性的"上。 */
+function checkCpuMatch(file) {
+  const { api: A } = loadGame(file);
+  if (!A.InputSources || !A.InputSources.CPU) return { skip: true, note: '未实现（B5 阶段实现后转为阻塞项）' };
+  const play = () => {
+    const { api: G } = loadGame(file);
+    G.resetMatch();
+    G.yy.input = 'CPU'; G.dad.input = 'CPU';
+    let h = 0;
+    for (let i = 0; i < G.T.matchTicks + 300 && G.MATCH.phase === 'FIGHT'; i++) {
+      G.tick();
+      h = (Math.imul(h ^ (G.yy.hpFp + G.dad.hpFp + i), 0x01000193)) >>> 0;
+    }
+    return { h, phase: G.MATCH.phase, winner: G.MATCH.winner, ticks: G.MATCH.ticksLeft };
+  };
+  const a = play(), b = play();
+  const ok = a.phase !== 'FIGHT' && a.h === b.h;
+  return { ok, note: `打完=${a.phase !== 'FIGHT'} 胜者=${a.winner} 两遍一致=${a.h === b.h}` };
+}
+
 /* ============================ 观察项 ============================ */
 /* 这些只打印，永不挡路。数字变化说明手感变了，但不代表做错了。 */
 
@@ -369,7 +405,8 @@ for (const b of BUILDS) {
   }
 
   const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple], ['被抓方的活路', checkGrappleCounterplay],
-                  ['骑头', checkMount], ['拉脚', checkLegpull]];
+                  ['骑头', checkMount], ['拉脚', checkLegpull],
+                  ['结算姿态', checkResultPose], ['CPU对局', checkCpuMatch]];
   for (const [name, fn] of checks) {
     let r;
     try { r = fn(file); } catch (e) { r = { ok: false, note: '抛异常：' + e.message }; }
