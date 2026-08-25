@@ -96,6 +96,60 @@ function checkKick(file) {
   return { ok, note: `进KICK=${entered} 扣血=${dmg} 交互对象数=${iids.size}（应为1）` };
 }
 
+/* B3a. 肩组：必须双方同时进入、出拳能扣血、只有一个交互对象、且**不会永久锁死**
+   （规格书 3.4 明确点名"禁止让两名角色各自猜测对方状态，否则会产生先手偏差、
+     穿插和永久锁死"，所以"能解开"和"能进入"同等重要，必须机器验证。）
+   未实现时跳过而不是失败：B3 之前的提交跑这个脚本也应该是绿的。 */
+function checkGrapple(file) {
+  const { api: A } = loadGame(file);
+  if (!A.ST.GRAPPLE) return { skip: true, note: '未实现（B3 阶段实现后本项自动转为阻塞项）' };
+
+  A.resetMatch();
+  const isGrap = s => typeof s === 'string' && s.indexOf('GRAPPLE') >= 0;
+  A.yy.state = A.ST.UW; A.yy.uwPose = 'H'; A.yy.dir = 1;
+  A.yy.axFp = 110 * 256; A.yy.ayFp = 140 * 256;
+  A.dad.state = A.ST.UW; A.dad.uwPose = 'H'; A.dad.dir = -1;
+  A.dad.axFp = 130 * 256; A.dad.ayFp = 140 * 256;
+
+  const iids = new Set();
+  const kinds = new Set();
+  let bothIn = false, hp0 = A.dad.hpFp, dmg = 0;
+
+  // 阶段一：朝对手游过去，应自动进入肩组
+  A.Input.R = 1;
+  for (let i = 0; i < 180 && !bothIn; i++) {
+    A.tick();
+    const it = A.interaction();
+    if (it) { iids.add(it.id); kinds.add(it.kind); }
+    if (isGrap(A.yy.state) && isGrap(A.dad.state)) bothIn = true;
+  }
+  A.Input.R = 0;
+
+  // 阶段二：肩组中按 B 出拳，应扣血
+  for (let i = 0; i < 90; i++) {
+    if (i % 30 === 0) { A.Input.B = 1; A.Input.pB = 1; } else { A.Input.B = 0; A.Input.pB = 0; }
+    A.tick();
+    const it = A.interaction();
+    if (it) { iids.add(it.id); kinds.add(it.kind); }
+  }
+  dmg = (hp0 - A.dad.hpFp) / 256;
+
+  // 阶段三：松开全部输入，必须能解开。解不开就是永久锁死。
+  A.Input.B = 0; A.Input.pB = 0; A.Input.R = 0;
+  let freed = false;
+  for (let i = 0; i < 900 && !freed; i++) {
+    A.tick();
+    if (!isGrap(A.yy.state) && !isGrap(A.dad.state)) freed = true;
+  }
+
+  const ok = bothIn && dmg > 0 && freed && iids.size >= 1 && kinds.has('GRAPPLE');
+  return {
+    ok,
+    note: `双方同时进入=${bothIn} 出拳扣血=${dmg} 能解开=${freed}` +
+          `${freed ? '' : ' ← 永久锁死'} 交互对象数=${iids.size} kind=${[...kinds].join(',') || '无'}`,
+  };
+}
+
 /* ============================ 观察项 ============================ */
 /* 这些只打印，永不挡路。数字变化说明手感变了，但不代表做错了。 */
 
@@ -154,9 +208,11 @@ for (const b of BUILDS) {
     continue;
   }
 
-  for (const [name, fn] of [['内置自检', checkSelftest], ['踢击命中', checkKick]]) {
+  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple]];
+  for (const [name, fn] of checks) {
     let r;
     try { r = fn(file); } catch (e) { r = { ok: false, note: '抛异常：' + e.message }; }
+    if (r.skip) { console.log(`  跳过  ${name}：${r.note}`); continue; }
     console.log(`  ${r.ok ? '通过' : '阻塞'}  ${name}：${r.note}`);
     if (!r.ok) failed++;
   }
