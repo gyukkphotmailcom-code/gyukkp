@@ -49,7 +49,8 @@ function loadGame(file, search) {
 
   // 探针：把内部符号暴露出来供检查。加在末尾，不改动游戏代码本身。
   const probe = `;globalThis.__api = {
-    yy, dad, MATCH, tick, ST, SPRITES, Input, resetMatch,
+    yy, dad, MATCH, tick, ST, SPRITES, Input, resetMatch, T: ORIGINAL_TUNING,
+    InputSources: (typeof InputSources !== 'undefined' ? InputSources : null),
     interaction: () => (typeof interaction !== 'undefined' ? interaction : null),
   };`;
   new Function(m[1] + probe)();
@@ -150,6 +151,44 @@ function checkGrapple(file) {
   };
 }
 
+/* B3a-fix. 被肩组住的一方必须有活路（台账 S-07，用户 2026-08-25 拍板列为硬要求）
+   B3a 交付时"能解开"走的是 idleN 超时，而 idleN 会被**任何一方**的输入清零，
+   攻击方只要持续出拳，那条路径在真实对局中永远不触发 —— 机器判通过，实战仍是
+   "先抓住即赢"。所以这里换成实战判据：攻防双方同时连打，被抓方必须能在被打死
+   之前挣脱。给防守方单独接一个输入源，避免共用键盘造成的假象。 */
+function checkGrappleCounterplay(file) {
+  const { api: A } = loadGame(file);
+  if (!A.ST.GRAPPLE) return { skip: true, note: '肩组未实现' };
+  if (!A.InputSources) return { skip: true, note: '未暴露 InputSources，测不了' };
+
+  const isG = s => typeof s === 'string' && s.indexOf('GRAPPLE') >= 0;
+  const foe = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+  A.InputSources.TEST = () => foe;                    // 测试专用输入源，不改游戏代码
+
+  A.resetMatch();
+  A.yy.state = A.ST.UW; A.yy.uwPose = 'H'; A.yy.dir = 1;
+  A.yy.axFp = 110 * 256; A.yy.ayFp = 140 * 256;
+  A.dad.state = A.ST.UW; A.dad.uwPose = 'H'; A.dad.dir = -1;
+  A.dad.axFp = 130 * 256; A.dad.ayFp = 140 * 256;
+
+  A.Input.R = 1;
+  for (let i = 0; i < 200; i++) { A.tick(); if (isG(A.yy.state) && isG(A.dad.state)) break; }
+  A.Input.R = 0;
+  if (!isG(A.dad.state)) return { ok: false, note: '没能进入肩组，无法测试' };
+
+  A.dad.input = 'TEST';                               // 防守方从此刻起独立操作
+  for (let n = 0; n < 1800; n++) {
+    A.Input.B = n % 8 < 4 ? 1 : 0;  A.Input.pB = (n % 8 === 0) ? 1 : 0;   // 攻击方连打出拳
+    foe.B     = n % 6 < 3 ? 1 : 0;  foe.pB     = (n % 6 === 0) ? 1 : 0;   // 防守方连打挣扎
+    A.tick();
+    if (A.dad.hpFp <= 0)
+      return { ok: false, note: `连打挣扎无效：${((n + 1) / 60).toFixed(1)} 秒被打死，全程没能脱身` };
+    if (!isG(A.dad.state))
+      return { ok: true, note: `连打挣扎 ${((n + 1) / 60).toFixed(1)} 秒脱身，剩余HP ${A.dad.hpFp / 256}/${A.T.hpMaxFp / 256}` };
+  }
+  return { ok: false, note: '30 秒内既没死也没脱身（纠缠上限没生效）' };
+}
+
 /* ============================ 观察项 ============================ */
 /* 这些只打印，永不挡路。数字变化说明手感变了，但不代表做错了。 */
 
@@ -235,7 +274,7 @@ for (const b of BUILDS) {
     continue;
   }
 
-  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple]];
+  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple], ['被抓方的活路', checkGrappleCounterplay]];
   for (const [name, fn] of checks) {
     let r;
     try { r = fn(file); } catch (e) { r = { ok: false, note: '抛异常：' + e.message }; }
