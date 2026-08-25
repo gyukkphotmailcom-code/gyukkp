@@ -20,6 +20,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;}
    + B1 比赛流程(3:00倒计时 / HP / 气绝掉血 / 胜负判定 / 重开)
    + B2 战斗内核(快照式tick消除先手偏差 / inputSource抽象 / 唯一interaction骨架 / 水下踢击三相位)
    + B3a 肩组(GRAPPLE: 水下朝对手移动接触→双方同时进入; B出拳; 无输入超时/上限自动解开)
+   + B3a-fix 被抓方活路(被抓方连打A/B累积挣脱值, 攒满强制解开; 攻击方出拳不影响挣脱值)
    尺寸与画风以《输出/唯一尺寸与画风合同.md》为唯一权威。
    暂不实现: 骑头/拉脚(B3b)、败北演出与结算画面(B4)、
              爸爸AI与2P(B5)、声音与触屏(C1)。
@@ -424,6 +425,9 @@ const ORIGINAL_TUNING = {
   grappleIdleTicks: 90,                    // 双方无输入持续该时长→自动解开 估值
   grappleMaxTicks: 600,                    // 纠缠上限, 到点强制解开 估值
   grappleBreakFp: FP(10),                  // 解开时双方各退距离 估值
+  /* ---- B3a-fix 被抓方挣脱 (原版无实机标定, 全部为估值) ---- */
+  escapePerPressFp: FP(1),                 // 被抓方每次 A/B 连打边沿累积的挣脱值 估值
+  escapeMaxFp: FP(12),                     // 挣脱值上限(=12次连打), 攒满强制解开 估值
 };
 
 /* ---------- 输入 (键盘: 方向 + Z/空格=A, X=B; 或内置测试脚本) ---------- */
@@ -1301,9 +1305,13 @@ function snapChar(c){                                  // ① 快照: 结算期�
 }
 /* ② 意图: 只读快照与输入。本轮有踢击/出拳两种; 骑头/拉脚的意图在 B3b 挂进同一结构 */
 function decide(c, self, foe, inp){
+  /* 肩组中的角色分工(建立时定死): 主动方按B=出拳; 被抓方按A/B=连打挣脱(不是出拳) */
+  const role = interaction && interaction.kind === 'GRAPPLE'
+    ? (interaction.aId === c.id ? interaction.aRole : interaction.bRole) : null;
   return {
     startKick:  !!(inp.pB && self.state === ST.UW),
-    startPunch: !!(inp.pB && self.state === ST.GRAPPLE),
+    startPunch: !!(inp.pB && self.state === ST.GRAPPLE && role === 'attacker'),
+    struggle:   !!(inp.pA || inp.pB),                  // 连打边沿; 只有被抓方积攒(见resolvePair)
     moveX: (inp.R ? 1 : 0) - (inp.L ? 1 : 0),
     moveY: (inp.D ? 1 : 0) - (inp.U ? 1 : 0),
     active: !!(inp.L || inp.R || inp.U || inp.D || inp.A || inp.B || inp.pA || inp.pB),
@@ -1377,16 +1385,21 @@ function resolvePair(sA, sB, dA, dB){
       fx.push({ type: 'GRAPPLE_SETTLE', targetId: sA.id });
     if (sB.state === ST.GRAPPLE_STRUGGLE && sA.state !== ST.GRAPPLE_PUNCH)
       fx.push({ type: 'GRAPPLE_SETTLE', targetId: sB.id });
-    /* 解开: 双方全无输入持续 grappleIdleTicks, 或纠缠达 grappleMaxTicks 上限 —— 两条确定路径 */
+    /* 被抓方连打挣脱: 防守方(建立时非主动的一方)的 A/B 边沿累积挣脱值, 攒满强制解开。
+       攻击方出拳不影响挣脱值 —— 这条路径只被抓方自己说了算。 */
+    const defD = interaction.aRole === 'defender' ? dA : interaction.bRole === 'defender' ? dB : null;
+    if (defD && defD.struggle) interaction.escapeFp += T.escapePerPressFp;
+    /* 解开三条确定路径: 被抓方挣脱值攒满 / 双方全无输入持续 grappleIdleTicks / 纠缠达 grappleMaxTicks 上限 */
     if (dA.active || dB.active) interaction.idleN = 0; else interaction.idleN++;
-    if (interaction.idleN >= T.grappleIdleTicks || interaction.pairTick >= T.grappleMaxTicks)
+    if (interaction.escapeFp >= T.escapeMaxFp ||
+        interaction.idleN >= T.grappleIdleTicks || interaction.pairTick >= T.grappleMaxTicks)
       fx.push({ type: 'GRAPPLE_OFF' });
   } else if (kickA || kickB){
     if (!interaction){
       interaction = { id: nextIid++, kind: 'KICK', phase: 'STARTUP', pairTick: 0,
                       aId: sA.id, bId: sB.id, aRole: 'attacker', bRole: 'defender',
                       pairAnchor: [0, 0], facing: 1, drawOrder: [sA.id, sB.id],
-                      appliedEvents: {}, idleN: 0 };
+                      appliedEvents: {}, idleN: 0, escapeFp: 0 };
     } else interaction.pairTick++;
     interaction.aRole = kickA ? 'attacker' : 'defender';
     interaction.bRole = kickB ? 'attacker' : 'defender';
@@ -1417,7 +1430,7 @@ function resolvePair(sA, sB, dA, dB){
                       aRole: towA ? 'attacker' : 'defender', bRole: towB ? 'attacker' : 'defender',
                       pairAnchor: [ (sA.axFp + sB.axFp) >> 1, (sA.ayFp + sB.ayFp) >> 1 ],
                       facing: sB.axFp >= sA.axFp ? 1 : -1,
-                      drawOrder: [sB.id, sA.id], appliedEvents: {}, idleN: 0 };
+                      drawOrder: [sB.id, sA.id], appliedEvents: {}, idleN: 0, escapeFp: 0 };
       fx.push({ type: 'GRAPPLE_ON' });
     }
   } else if (interaction){
@@ -1488,7 +1501,7 @@ function hashState(){
   if (interaction){
     mix(interaction.id); mix(interaction.kind); mix(interaction.phase); mix(interaction.pairTick);
     mix(interaction.pairAnchor[0]); mix(interaction.pairAnchor[1]);
-    mix(interaction.facing); mix(interaction.idleN);
+    mix(interaction.facing); mix(interaction.idleN); mix(interaction.escapeFp);
     for (const k in interaction.appliedEvents) mix(k);
   }
   return h >>> 0;
@@ -1977,35 +1990,46 @@ if (qs.has('selftest')){
     resetMatch();
   }
   parts.length = 0;
-  /* E3. 肩组确定性+流程: 同一脚本(靠近→纠缠→两拳→松开)跑两遍, 逐tick hash一致;
-         顺带断言: 双方同时进入 / 出拳扣血恰好两拳 / 松开后有限tick内解开 / 全程一个interaction */
+  /* E3. 肩组确定性+流程: 同一脚本(靠近→纠缠→两拳→被抓方连打挣脱)跑两遍, 逐tick hash一致;
+         顺带断言: 双方同时进入 / 出拳扣血恰好两拳 / 挣脱值路径先于无输入超时解开 / 全程一个interaction */
   {
     const run = () => {
       resetMatch(); scriptMode = null; tickCount = 0;
+      const foeInp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+      InputSources.TEST = () => foeInp;                // 被抓方(爸爸)的独立输入源, 与 verify.js 同接口
+      dad.input = 'TEST';
       yy.state = ST.UW; yy.t = 0; yy.uwPose = 'H'; yy.dir = 1; yy.axFp = FP(110); yy.ayFp = FP(140);
       dad.state = ST.UW; dad.t = 0; dad.uwPose = 'H'; dad.dir = -1; dad.axFp = FP(130); dad.ayFp = FP(140);
       const hs = []; const iids = new Set();
       let enterTick = -1, freeTick = -1; const hpD0 = dad.hpFp;
       for (let i = 0; i < 400; i++){
         Input.R = i < 20 ? 1 : 0;
-        Input.B = Input.pB = (i === 40 || i === 70) ? 1 : 0;
+        Input.B = Input.pB = (i === 40 || i === 70) ? 1 : 0;          // 攻击方两拳
+        /* 被抓方连打挣脱(只在仍被肩组时按, 解开后停按, 避免在水下误踢) */
+        foeInp.B = foeInp.pB = (i >= 90 && i % 2 === 0 && isGrappleState(dad.state)) ? 1 : 0;
         tick(); hs.push(hashState());
         if (interaction){ iids.add(interaction.id); }
         if (enterTick < 0 && isGrappleState(yy.state) && isGrappleState(dad.state)) enterTick = i;
         if (enterTick >= 0 && freeTick < 0 && !isGrappleState(yy.state) && !isGrappleState(dad.state)) freeTick = i;
       }
       Input.R = 0; Input.B = 0; Input.pB = 0;
-      return { hs, iids, enterTick, freeTick, dmg: hpD0 - dad.hpFp };
+      dad.input = 'IDLE';
+      return { hs, iids, enterTick, freeTick, dmg: hpD0 - dad.hpFp, hpY: yy.hpFp };
     };
     const r1 = run(), r2 = run();
     let gDiff = -1;
     for (let i = 0; i < 400; i++) if (r1.hs[i] !== r2.hs[i]){ gDiff = i; break; }
     if (gDiff >= 0) errs.push('肩组双跑分叉@tick' + gDiff);
     if (r1.enterTick < 0) errs.push('肩组: 未进入');
-    if (r1.freeTick < 0) errs.push('肩组: 松开输入后未解开(永久锁死)');
+    if (r1.freeTick < 0) errs.push('肩组: 未解开(永久锁死)');
+    /* 挣脱值12次×每2tick=24tick, 约i=113解开; 若无挣脱路径, 要等到最后输入(i≈128)+90tick超时 */
+    if (r1.freeTick >= 0 && r1.freeTick > 150)
+      errs.push('肩组: 解开@' + r1.freeTick + ' 太晚, 挣脱值路径未生效(走的像是无输入超时)');
     if (r1.dmg !== 2 * T.punchDamageFp)
       errs.push('肩组: 两拳扣血应为' + (2 * T.punchDamageFp / 256) + ' 实际' + (r1.dmg / 256));
+    if (r1.hpY !== T.hpMaxFp) errs.push('肩组: 被抓方挣扎不应反伤攻击方');
     if (r1.iids.size !== 1) errs.push('肩组: 交互对象数=' + r1.iids.size + ' (应1)');
+    delete InputSources.TEST;
     resetMatch();
   }
   parts.length = 0;
