@@ -220,35 +220,98 @@ function checkGrappleCounterplay(file) {
   return { ok: true, note: `挣扎 ${st.s.toFixed(1)} 秒脱身（剩余HP ${A.dad.hpFp / 256}/${A.T.hpMaxFp / 256}）；不挣扎 ${idleS.toFixed(1)} 秒被打死` };
 }
 
+/* ---- B3b 骑头 / 拉脚（未实现时跳过，实现后自动转为阻塞项）----------------
+   与肩组不同，规格书对这两者的脱身方式写得很具体，不存在"没有实机数据"的空白：
+     开发规格书:67  骑乘脱身 —— 被骑时按住 ↓ 潜水脱身；**不得设计"↓+B 连打百分比挣脱槽"**
+     开发规格书:334 被骑 —— 按住 ↓ 潜入水下逃脱；不显示原创挣脱百分比槽
+     开发规格书:444 拉脚 —— **仅**在水面敌人下方使用 ↑+B 才能拉脚下水
+   合同附录 A-1 只对肩组具名放行了连打挣脱槽，**不涵盖骑乘**。故这里同时做正向和
+   反向验证：按住↓必须能脱身，而连打必须**不**能脱身。 */
+function mkTestInput(A, who) {
+  const inp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+  A.InputSources.TEST = () => inp;
+  who.input = 'TEST';
+  return inp;
+}
+function checkMount(file) {
+  const { api: A } = loadGame(file);
+  if (!A.ST.MOUNT && !A.ST.MOUNTED) return { skip: true, note: '未实现（B3b 阶段实现后转为阻塞项）' };
+  if (!A.InputSources) return { skip: true, note: '未暴露 InputSources，测不了' };
+  const isM = s => typeof s === 'string' && s.indexOf('MOUNT') >= 0;
+
+  // 试若干水平间距，只要存在一次"跳过去能踩上头"即算进入条件成立
+  const tryMount = gap => {
+    const { api: G } = loadGame(file);
+    G.resetMatch();
+    G.dad.axFp = (120 + gap) * 256;
+    G.Input.L = G.Input.R = G.Input.U = G.Input.D = G.Input.A = G.Input.B = 0;
+    G.yy.axFp = 120 * 256;
+    G.Input.R = 1; G.Input.A = 1; G.Input.pA = 1;
+    for (let i = 0; i < 240; i++) {
+      if (i === 2) { G.Input.A = 0; G.Input.pA = 0; }
+      G.tick();
+      if (isM(G.yy.state) || isM(G.dad.state)) return G;
+    }
+    return null;
+  };
+  let G = null;
+  for (const gap of [8, 12, 16, 20, 24, 28, 32]) { G = tryMount(gap); if (G) break; }
+  if (!G) return { ok: false, note: '试了 7 种间距都没能跳到对方头上进入骑乘（若是本检查的场景搭得不对，请说明）' };
+
+  const air0 = G.dad.airFp;
+  for (let i = 0; i < 60; i++) G.tick();
+  const drains = G.dad.airFp < air0;
+
+  // 反向：连打不该能脱身
+  const mash = mkTestInput(G, G.dad);
+  let mashEsc = false;
+  for (let n = 0; n < 300; n++) {
+    mash.B = n % 4 < 2 ? 1 : 0; mash.pB = n % 4 === 0 ? 1 : 0;
+    mash.A = n % 6 < 3 ? 1 : 0; mash.pA = n % 6 === 0 ? 1 : 0;
+    G.tick();
+    if (!isM(G.dad.state)) { mashEsc = true; break; }
+  }
+  // 正向：按住 ↓ 必须能脱身
+  let holdEsc = false;
+  if (!mashEsc) {
+    mash.A = mash.B = mash.pA = mash.pB = 0; mash.D = 1;
+    for (let n = 0; n < 600; n++) { G.tick(); if (!isM(G.dad.state)) { holdEsc = true; break; } }
+  }
+  const ok = drains && !mashEsc && holdEsc;
+  return { ok, note: `踩头成功 持续掉氧=${drains} 连打能脱身=${mashEsc}（应为false）` +
+                     ` 按住↓能脱身=${mashEsc ? '未测' : holdEsc}` };
+}
+
+function checkLegpull(file) {
+  const { api: A } = loadGame(file);
+  if (!A.ST.LEGPULL && !A.ST.LEGPULLED) return { skip: true, note: '未实现（B3b 阶段实现后转为阻塞项）' };
+  if (!A.InputSources) return { skip: true, note: '未暴露 InputSources，测不了' };
+  const isL = s => typeof s === 'string' && s.indexOf('LEGPULL') >= 0;
+
+  const run = below => {
+    const { api: G } = loadGame(file);
+    G.resetMatch();
+    G.dad.axFp = below ? 120 * 256 : 190 * 256;        // below=是否位于水面敌人正下方
+    G.yy.state = G.ST.UW; G.yy.uwPose = 'H';
+    G.yy.axFp = 120 * 256; G.yy.ayFp = 150 * 256;
+    const air0 = G.dad.airFp;
+    for (let i = 0; i < 200; i++) {
+      G.Input.U = 1; G.Input.B = i % 8 < 4 ? 1 : 0; G.Input.pB = i % 8 === 0 ? 1 : 0;
+      G.tick();
+      if (isL(G.yy.state) || isL(G.dad.state)) return { hit: true, air0, G };
+    }
+    return { hit: false };
+  };
+  const near = run(true), far = run(false);
+  if (!near.hit) return { ok: false, note: '在水面敌人正下方 ↑+B 没能触发拉脚（若是本检查的场景搭得不对，请说明）' };
+  for (let i = 0; i < 60; i++) near.G.tick();
+  const drains = near.G.dad.airFp < near.air0;
+  const ok = drains && !far.hit;
+  return { ok, note: `正下方触发=true 拖拽掉氧=${drains} 远处也能触发=${far.hit}（应为false）` };
+}
+
 /* ============================ 观察项 ============================ */
 /* 这些只打印，永不挡路。数字变化说明手感变了，但不代表做错了。 */
-
-/* O0. 被肩组住的一方还有没有活路（台账 S-07）
-   verify 的「肩组」阻塞项测的是"双方都松手"这条脱离路径，但实战里攻击方不会松手，
-   而 idleN 会被**任何一方**的输入清零 —— 所以那条路径在真实对局中永远不触发。
-   这里量的是实战数值：被抓住之后能撑多久、有没有脱身路径。 */
-function obsGrappleSurvival(file) {
-  const { api: A } = loadGame(file);
-  if (!A.ST.GRAPPLE) return '未实现';
-  const isG = s => typeof s === 'string' && s.indexOf('GRAPPLE') >= 0;
-  A.resetMatch();
-  A.yy.state = A.ST.UW; A.yy.uwPose = 'H'; A.yy.dir = 1;
-  A.yy.axFp = 110 * 256; A.yy.ayFp = 140 * 256;
-  A.dad.state = A.ST.UW; A.dad.uwPose = 'H'; A.dad.dir = -1;
-  A.dad.axFp = 130 * 256; A.dad.ayFp = 140 * 256;
-  A.Input.R = 1;
-  for (let i = 0; i < 200; i++) { A.tick(); if (isG(A.yy.state) && isG(A.dad.state)) break; }
-  A.Input.R = 0;
-  if (!isG(A.dad.state)) return '(没能进入肩组，测不了)';
-
-  for (let n = 0; n < 1800; n++) {                       // 攻击方持续出拳，防守方不动
-    A.Input.B = n % 8 < 4 ? 1 : 0; A.Input.pB = (n % 8 === 0) ? 1 : 0;
-    A.tick();
-    if (A.dad.hpFp <= 0) return `被抓住后 ${((n + 1) / 60).toFixed(1)} 秒内被打死，期间无脱身路径`;
-    if (!isG(A.dad.state)) return `被抓住后 ${((n + 1) / 60).toFixed(1)} 秒脱身，剩余HP ${A.dad.hpFp / 256}`;
-  }
-  return '30 秒内既没死也没脱身';
-}
 
 /* O1. 判定盒左右镜像是否对称（台账 S-06） */
 function obsMirror(file) {
@@ -305,7 +368,8 @@ for (const b of BUILDS) {
     continue;
   }
 
-  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple], ['被抓方的活路', checkGrappleCounterplay]];
+  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple], ['被抓方的活路', checkGrappleCounterplay],
+                  ['骑头', checkMount], ['拉脚', checkLegpull]];
   for (const [name, fn] of checks) {
     let r;
     try { r = fn(file); } catch (e) { r = { ok: false, note: '抛异常：' + e.message }; }
@@ -314,8 +378,7 @@ for (const b of BUILDS) {
     if (!r.ok) failed++;
   }
 
-  const obs = [['被肩组后的活路', obsGrappleSurvival], ['判定盒镜像', obsMirror],
-               ['判定盒覆盖率', obsCoverage]];
+  const obs = [['判定盒镜像', obsMirror], ['判定盒覆盖率', obsCoverage]];
   for (const [name, fn] of obs) {
     let s;
     try { s = fn(file); } catch (e) { s = '(测不了：' + e.message + ')'; }
