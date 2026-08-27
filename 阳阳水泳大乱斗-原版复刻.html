@@ -19,11 +19,14 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;}
    + B0 资产层解耦(SPRITES 数据契约, 玩法不依赖具体美术)
    + B1 比赛流程(3:00倒计时 / HP / 气绝掉血 / 胜负判定 / 重开)
    + B2 战斗内核(快照式tick消除先手偏差 / inputSource抽象 / 唯一interaction骨架 / 水下踢击三相位)
-   + B3a 肩组(GRAPPLE: 水下朝对手移动接触→双方同时进入; B出拳; 无输入超时/上限自动解开)
-   + B3a-fix 被抓方活路(被抓方连打A/B累积挣脱值, 攒满强制解开; 攻击方出拳不影响挣脱值)
+   + B3a 肩组(GRAPPLE: 水下接触→双方同时进入; 双方连打B互殴, 直到一方缺氧/败北)
+   + B3b 骑头(MOUNT: 跳跃向下扫掠+水平重叠+目标可骑共同判定; 被骑按住↓下潜脱身, 无连打挣脱槽)
+        拉脚(LEGPULL: 仅在水面敌人正下方↑+B触发; 抓住/拖拽/释放三相位)
+   + B4 结算姿态(时间到按HP判负时败者进LOSE; 败北占位帧循环)
+   + B5 输入源接入(2P键位)
+   + 2026-08-27: 项目范围定为本地双人1v1(人对人), CPU/AI与模式切换已整体移除; REPLAY仅用于自动验收
    尺寸与画风以《输出/唯一尺寸与画风合同.md》为唯一权威。
-   暂不实现: 骑头/拉脚(B3b)、败北演出与结算画面(B4)、
-             爸爸AI与2P(B5)、声音与触屏(C1)。
+   暂不实现: 声音与触屏(C1)。
    布局基准(256×224 原生实机帧测量):
      比赛区 y=0..167 / HUD y=168..223
      远景(日版固定像素背景) y=0..72 / 透视水面 y=72..101
@@ -330,6 +333,23 @@ function drawPool(){
 const SCALE = 256;
 const FP = v => Math.round(v * SCALE);   // 仅初始化常量用
 
+/* ---------- 原版角色性能模板 ----------
+   阳阳映射日版くにお(HP240 / 速度112 / 力量121 / 防御118)。
+   爸爸采用同机种美版队长 Todd 的公开数据(250 / 100 / 124 / 117)，只作为可核验的
+   第二种原版性能模板；不把它冒充成日版りき的精确数值。人物外貌仍按家庭版合同定制。 */
+const CHARACTER_PROFILES = Object.freeze({
+  yy: Object.freeze({ source:'KUNIO_JP', hp:240, speed:112, power:121, defense:118 }),
+  dd: Object.freeze({ source:'TODD_USA', hp:250, speed:100, power:124, defense:117 }),
+});
+const PROFILE_BASE = CHARACTER_PROFILES.yy;
+function profileForId(id){ return CHARACTER_PROFILES[id === 'dd' ? 'dd' : 'yy']; }
+function profileMaxHpFp(id){ return FP(profileForId(id).hp / 5); } // 240→48槽单位, 250→50
+function profileDamageFp(baseFp, attackerId, targetId){
+  const a = profileForId(attackerId), d = profileForId(targetId);
+  return Math.max(1, Math.round(baseFp * a.power * PROFILE_BASE.defense /
+                               (PROFILE_BASE.power * d.defense)));
+}
+
 /* ---------- ORIGINAL_TUNING: 阶段3 实测/待标定参数(全部整数定点) ---------- */
 /* 实测来源(R6复核; 旧f12533段两名角色重叠, 作废):
    下潜: USA录像 f15615..f15620 (5帧间隔@30fps=10tick@60Hz; f15614仅动作前参考帧;
@@ -345,16 +365,20 @@ const FP = v => Math.round(v * SCALE);   // 仅初始化常量用
          Oxy结束回满=复审指令硬性规格, 保留。
    游泳循环: 全程未找到无接触稳定划水段 → swimSpeedFp/swimCycleTicks/boostCycleTicks/emergeTicks 待标定(占位值)。
    跳跃: 泳池段无无接触水面A跳录像样本 → jumpTicks/jumpMoveXFp/帧切换点待标定; 滞空姿态依据官方截图jp-action-c(横向飞扑)。
-   换气水平位移: 待标定占位=0(单样本−87px疑方向输入, 未确认动作自带); 参数已接入BREATH状态机(由方向键消费)。 */
+   换气水平位移: 待标定占位=0(单样本−87px疑方向输入, 未确认动作自带); 参数已接入BREATH状态机(由方向键消费)。
+   水面平移(2026-08-26 用户裁决, 动作矩阵§1): 录像seg3 f0510确有趴游横移, 但用户裁决
+     「水下可以接近, 水面上只能跳跃到对面」→ 水面锁位, ←/→仅换向+跳跃预选, surfDriftFp 已删除。
+     若日后恢复平移, 速度估值区间0.5..1px/tick(f0510→f0542汇合速率粗测)。
+   上浮时长: 入场自动上浮实测≤2帧@30fps(≤4tick, seg1 t=74..77), 手动↑上浮样本缺 → emergeTicks=10保留占位。 */
 const ORIGINAL_TUNING = {
-  /* 水面漂浮 (锚点=脚底中心 y=108: 水面线≈96, 漂浮没入12px) */
+  /* 水面漂浮 (锚点=脚底中心 y=108: 水面线≈96, 漂浮没入12px; 锁位=←/→不平移, 见上方裁决) */
   surfFootY: 108,
   floatBobPx: 1, floatBobTicks: 30,      // 待标定(节奏)
-  surfDriftFp: 64,                       // 0.25px/tick 待标定(实机是否允许持续平移未确认)
-  /* 跳跃 (滞空姿态=jp-action_c官方截图; 时长/位移无录像样本→待标定) */
-  jumpTicks: 50,                         // 待标定(无录像证据)
-  jumpRiseFp: FP(28),                    // 脚离水≈20px + 漂浮没入≈8px (jp-action-c)
-  jumpMoveXFp: 128,                      // 0.5px/tick→全程约25px 待标定
+  /* 跳跃 (滞空姿态=jp-action_c官方截图; 时长/位移无干净样本→估值;
+     弱证据: seg3空气带能量尖峰间隔中值≈23帧@30fps≈46tick, 疑含换气/骑乘, 取50待FM2标定) */
+  jumpTicks: 50,                         // 估值(尖峰间隔弱证据≈46, 待FM2)
+  jumpRiseFp: FP(28),                    // 脚离水≈20px + 漂浮没入≈8px (jp-action-c); f0542腾空更高但疑含骑乘
+  jumpMoveXFp: 128,                      // 0.5px/tick→全程约25px 估值
   jumpFrame1Tick: 10, jumpFrame2Tick: 30,// 起跳蹲/滞空展开/下落 三帧切换点 待标定
   /* 下潜 (实测 f15615..f15620: 5间隔@30fps=10tick; 必须按住↓推进, 松开按diveBackSpeed弹回) */
   diveTicks: 10,                         // 实测
@@ -403,49 +427,70 @@ const ORIGINAL_TUNING = {
        硬标准(规则性事实, 必须复刻): 比赛3:00 / 氧气归零进气绝并持续掉血 / HP归零判负 / 时间到按HP判胜负
        软标准(估值, 以试玩手感为准): 掉血速率、上浮速率、呛水回氧量、HP槽单位数 */
   matchTicks: 10800,                     // 3:00 @60Hz 硬标准
-  hpMaxFp: FP(48),                       // HP槽单位数 估值
+  hpMaxFp: FP(48),                       // くにお240HP映射为48槽单位; 各角色上限由性能模板换算
   /* 气绝掉血: 越深越久才浮回水面 → 一次气绝代价 6~29 单位(满槽48), 约3次气绝致死。
      标定依据: 必须让"扣到0"在 3:00 内可达, 否则胜负判定形同虚设。数值为估值, 试玩后再调。 */
-  drownDrainFp: 48,                      // 气绝每tick掉血 估值
+  drownDrainFp: 24,                      // 气绝每tick掉血 估值; 先按实机常见20~50秒局长下调
   drownRiseFp: 96,                       // 气绝失控上浮 0.375px/tick 估值
   drownRecoverFp: FP(18),                // 呛回水面后恢复的氧量(非满槽) 估值
-  /* ---- B2 水下踢击/受击 (全部为估值, 以试玩手感为准) ---- */
+  /* ---- B2 水下踢击/受击 (规则来自官方说明; 数值为估值, 以试玩手感为准) ---- */
   kickStartupTicks: 6,                   // 起手相位 估值
   kickActiveTicks: 6,                    // 有效相位(有hitbox) 估值
   kickRecoverTicks: 10,                  // 收招相位 估值
   kickTotalTicks: 22,                    // = 6+6+10
-  kickDamageFp: FP(6),                   // 命中扣血(满槽48) 估值
+  kickDamageFp: FP(3),                   // 命中扣血(满槽48) 估值; 降低到接近实机20~50秒常见对局节奏
+  kickAirDamageFp: FP(8),                // 官方: 挨打会额外掉空气; 单次量待标定
   hitStunTicks: 12,                      // 受击硬直 估值
   hitKnockFp: 192,                       // 击退速度 0.75px/tick 估值
   /* ---- B3a 肩组 (原版肩组节奏/伤害无实机标定, 全部为估值) ---- */
   punchStartupTicks: 4, punchActiveTicks: 4, punchRecoverTicks: 8,   // 出拳三相位 估值
   punchTotalTicks: 16,                     // = 4+4+8
-  punchDamageFp: FP(4),                    // 肩组出拳命中扣血(满槽48) 估值
+  punchDamageFp: FP(2),                    // 肩组出拳命中扣血(满槽48) 估值
+  punchAirDamageFp: FP(6),                 // 官方: 肩组拳同样额外掉空气; 单次量待标定
   grappleGapFp: FP(14),                    // 肩组双方锚点间距(共用接触锚点) 估值
-  grappleIdleTicks: 90,                    // 双方无输入持续该时长→自动解开 估值
-  grappleMaxTicks: 600,                    // 纠缠上限, 到点强制解开 估值
   grappleBreakFp: FP(10),                  // 解开时双方各退距离 估值
-  /* ---- B3a-fix 被抓方挣脱 (原版无实机标定, 全部为估值) ---- */
-  escapePerPressFp: FP(1),                 // 被抓方每次 A/B 连打边沿累积的挣脱值 估值
-  escapeMaxFp: FP(12),                     // 挣脱值上限(=12次连打), 攒满强制解开 估值
+  /* ---- B3b 骑头/拉脚 (原版无实机标定, 全部为估值, 手感待试玩后调) ---- */
+  mountSeatFp: FP(24),                     // 骑座线: 骑手脚底钉在被骑者锚点上方24px(约头顶) 估值
+  mountDrainFp: 12,                        // 骑乘耗氧/tick(比水下耗氧9略快) 估值
+  mountEscapeFp: FP(20),                   // 被骑按住↓下潜脱身需积攒20tick(按下式, 松开回退) 估值
+  legpullRangeFp: FP(16),                  // 拉脚水平对准容差(正下方判定) 估值
+  legpullReachFp: FP(56),                  // 拉脚纵向可达距离 估值
+  legpullGrabTicks: 8, legpullDragTicks: 24,   // 抓住/拖拽相位时长(规格书244三相位) 估值
+  legpullDrainFp: 12,                      // 被拉入水耗氧/tick 估值
+  /* ---- 池底奖牌: 实机可见从池底斜向上浮, 拾取只计奖牌、不改变本场胜负 ---- */
+  medalFirstTicks: 45, medalEveryTicks: 240,   // 首枚约0.75秒, 之后约4秒一枚; 时机待标定
+  medalRiseFp: 64, medalDriftMinFp: 16, medalDriftSpanFp: 17,
+  medalSpawnYFp: FP(164), medalPopYFp: FP(114),
 };
 
-/* ---------- 输入 (键盘: 方向 + Z/空格=A, X=B; 或内置测试脚本) ---------- */
+/* ---------- 输入 (2026-08-27起: 固定本地双人1v1, 无模式切换、无CPU/AI;
+   键位集中在 CONTROL_BINDINGS, 可修改; 1P=阳阳WASD+F/G, 2P=爸爸方向键+K/L; Enter/R=重新开始) ---------- */
 const Input = { L:0, R:0, U:0, D:0, A:0, B:0, pA:0, pB:0, START:0, pStart:0 };
-const KEYMAP = { ArrowLeft:'L', ArrowRight:'R', ArrowUp:'U', ArrowDown:'D', KeyZ:'A', Space:'A', KeyX:'B',
-                 Enter:'START', KeyR:'START' };
+const Input2 = { L:0, R:0, U:0, D:0, A:0, B:0, pA:0, pB:0 };          // 2P侧(爸爸)
+const CONTROL_BINDINGS = {
+  p1: { KeyA:'L', KeyD:'R', KeyW:'U', KeyS:'D', KeyF:'A', KeyG:'B', Enter:'START', KeyR:'START' },
+  p2: { ArrowLeft:'L', ArrowRight:'R', ArrowUp:'U', ArrowDown:'D', KeyK:'A', KeyL:'B' },
+};
+function pressKey(I, k, down){
+  if (down && !I[k]){ if (k === 'A') I.pA = 1; if (k === 'B') I.pB = 1; if (k === 'START') I.pStart = 1; }
+  I[k] = down ? 1 : 0;
+}
+function bindKey(code, down){
+  if (CONTROL_BINDINGS.p1[code]){ pressKey(Input, CONTROL_BINDINGS.p1[code], down); return true; }
+  if (CONTROL_BINDINGS.p2[code]){ pressKey(Input2, CONTROL_BINDINGS.p2[code], down); return true; }
+  return false;
+}
 let scriptMode = null;
 addEventListener('keydown', e => {
-  const k = KEYMAP[e.code]; if (!k || scriptMode) return;
-  if (!Input[k]) { if (k === 'A') Input.pA = 1; if (k === 'B') Input.pB = 1; if (k === 'START') Input.pStart = 1; }
-  Input[k] = 1; e.preventDefault();
+  if (scriptMode) return;
+  if (bindKey(e.code, true)) e.preventDefault();
 });
 addEventListener('keyup', e => {
-  const k = KEYMAP[e.code]; if (!k || scriptMode) return;
-  Input[k] = 0; e.preventDefault();
+  if (scriptMode) return;
+  if (bindKey(e.code, false)) e.preventDefault();
 });
 
-/* 验收脚本: 垂直跳(无预选)/预选右跳/预选左跳/点按下潜弹回/按住下潜/右游加速/静止A(头朝下)/纯下移(头朝下)/八向/移动中A/按住U上浮(头朝上)/自然回氧/耗空Oxy→B换气回满/水面双向漂移 */
+/* 验收脚本: 垂直跳(无预选)/预选右跳/预选左跳/点按下潜弹回/按住下潜/右游加速/静止A(头朝下)/纯下移(头朝下)/八向/移动中A/按住U上浮(头朝上)/自然回氧/耗空Oxy→B换气回满/水面锁位换向预选 */
 const DEMO_SCRIPT = [
   [10,'A',1],[11,'A',0],                                   // 垂直跳(无预选→dx=0)
   [80,'R',1],[100,'R',0],[120,'A',1],[121,'A',0],          // 预选右→松开后A仍右跳
@@ -463,8 +508,8 @@ const DEMO_SCRIPT = [
   [548,'R',0],[548,'U',1],[560,'A',1],[561,'A',0],[570,'U',0], // 按住U(竖直上升)到顶→EMERGE(boost清零)→SURF
   [638,'AIR',0],                                           // 耗空Oxy(验证B完成回满)
   [640,'B',1],[641,'B',0],                                 // B超级换气(准备/上升/顶峰/回落四段+气泡, 完成设airMax)
-  [700,'R',1],[720,'R',0],                                 // 水面右漂
-  [760,'L',1],[780,'L',0],                                 // 水面左漂
+  [700,'R',1],[720,'R',0],                                 // 水面按R(锁位: 只换向+预选, ax不变)
+  [760,'L',1],[780,'L',0],                                 // 水面按L(锁位: 只换向+预选, ax不变)
 ];
 function applyScript(tick){
   for (const [t, k, v] of DEMO_SCRIPT){
@@ -850,11 +895,11 @@ function drawPart(map, x, y, colors, flip){
    - rows      扁平的完整人物字符网格(不再是"24x24头贴上+16x16身体填空")
    - anchorX/Y 世界锚点在帧内的偏移; 状态切换只改绘制原点, 逻辑锚点不动
    - hurtbox/hitbox 是独立数据字段(规格书5.1要求), 当前为 provisional 占位值
-   当前 frames 由 bakeFrames() 从阶段2/阶段3 已验收像素合成, 输出与旧渲染逐像素一致。
+   当前 frames 由 bakeFrames() 程序化生成 ~24px 调试轮廓(2026-08-26 第一轮; 家庭人物 bake 暂时禁用, 阶段4恢复)。
    正式美术接入方式: bake.py 读概念图流水线的 PNG, 生成同结构的 SPRITES 段替换本段。
    ** 替换时下面的玩法代码零改动。这是美术轨与玩法轨能并行的技术前提。 **
    ===================================================== */
-const SPRITES = { meta:{ source:'placeholder-v1', yyHeight:40, ddHeight:47 }, frames:{} };
+const SPRITES = { meta:{ source:'debug-24px-v1', yyHeight:22, ddHeight:22 }, frames:{} };
 const frameId = (avatar, action, dir, idx) => avatar + '.' + action + '.' + (dir > 0 ? 'R' : 'L') + '.' + idx;
 
 function composeFrame(lay, bodyMap, headMap, headDy, mir){
@@ -884,73 +929,117 @@ function rowsBBox(rows){
 }
 
 function bakeFrames(){
-  const face = (a, d) => AVATAR[a][d];
-  const side = (a, d) => HEAD_SIDE[a][d];
-  const down = (a, d) => HEAD_DOWN[a][d];
-  const brth = i => (a, d) => AVATAR_BREATH[a][d][i];
-  /* 已有正式像素的动作(阶段2/3已验收) */
-  const REAL = {
-    SURF:   [[LAY.SURF, () => BODY.SURF[0], face], [LAY.SURF, () => BODY.SURF[1], face]],
-    JUMP:   [[LAY.JUMP[0], () => BODY.JC[0], face], [LAY.JUMP[1], () => BODY.JA[0], side], [LAY.JUMP[2], () => BODY.JF[0], face]],
-    DIVE:   [[LAY.DIVE[0], () => BODY.DIVE[0], side], [LAY.DIVE[1], () => BODY.DIVE[1], side], [LAY.DIVE[2], () => BODY.DIVE[2], down]],
-    UW:     [[LAY.UW, () => BODY.UW[0], side], [LAY.UW, () => BODY.UW[1], side]],
-    UWB:    [[LAY.UW, () => BODY.UWB[0], side], [LAY.UW, () => BODY.UWB[1], side]],
-    UWU:    [[LAY.EMERGE, () => BODY.EMERGE[0], face]],
-    UWD:    [[LAY.UWV, () => BODY.UWV[0], down]],
-    EMERGE: [[LAY.EMERGE, () => BODY.EMERGE[0], face]],
-    BREATH: [[LAY.BREATH, () => BODY.SURF[0], face], [LAY.BREATH, () => BODY.BREATH[0], brth(0)],
-             [LAY.BREATH, () => BODY.BREATH[1], brth(1)], [LAY.BREATH, () => BODY.BREATH[2], brth(0)]],
+  /* 2026-08-26 第一轮起: ~24px 原版尺寸调试人物(新开发计划)。家庭人物 bake 暂时禁用(阶段4恢复),
+     全部 21 动作 41 帧改为程序化简单轮廓, 一律 placeholder:true。
+     几何四族, 锚点统一在"脚底/下端": TALL 16x22(直立/水面/肩组/骑乘) / WIDE 24x12(横游/踢击/滞空) /
+     VERT 12x20(竖直) / TURN 16x16(DIVE转向团身)。两角色共用轮廓, 由 T(队色)区分。
+     旧家庭人物像素数据(AVATAR/BODY/HEAD_* 等)保留在文件内: selftest 静态断言仍引用, 阶段4恢复时参考。 */
+  const GEO = { TALL:[16,22,8,22], WIDE:[24,12,12,12], VERT:[12,20,6,20], TURN:[16,16,8,16] };
+  /* 朝右基准矩形零件 [x,y,w,h,ch]: 头=S肤+s发顶+W眼, 躯干=T队色, 四肢=S */
+  const tall = (armY, extra) => [
+    [5,1,6,6,'S'],[5,1,6,1,'s'],[9,3,2,2,'W'],[4,7,8,7,'T'],
+    [2,armY,2,6,'S'],[12,armY,2,6,'S'],
+    [5,14,2,7,'S'],[9,14,2,7,'S'],[4,20,3,2,'s'],[9,20,3,2,'s'],
+  ].concat(extra || []);
+  const wide = (arms, legs, extra) => [
+    [17,3,6,6,'S'],[17,3,6,1,'s'],[21,5,2,2,'W'],[5,4,12,5,'T'],
+  ].concat(arms, legs, extra || []);
+  const vertD = extra => [
+    [3,13,6,6,'S'],[3,18,6,1,'s'],[4,15,2,2,'W'],[2,5,8,8,'T'],
+    [3,0,2,5,'S'],[7,0,2,5,'S'],
+  ].concat(extra || []);
+  const vertU = extra => [
+    [3,1,6,6,'S'],[3,1,6,1,'s'],[4,3,2,2,'W'],[2,7,8,8,'T'],
+    [3,15,2,5,'S'],[7,15,2,5,'S'],
+  ].concat(extra || []);
+  const turn = [
+    [9,8,6,6,'S'],[9,8,6,1,'s'],[13,10,2,2,'W'],[3,4,10,7,'T'],
+    [2,0,4,4,'S'],[9,0,4,4,'S'],
+  ];
+  const SPEC = {
+    SURF:   [ ['TALL', tall(7)], ['TALL', tall(5)] ],                       // 漂浮划水两帧
+    JUMP:   [ ['TALL', tall(9)],                                           // 起跳蓄力(臂后摆)
+              ['WIDE', wide([[14,0,5,2,'S']], [[1,3,4,2,'S'],[1,7,4,2,'S']])],  // 滞空横向飞扑(jp-action-c)
+              ['TALL', tall(5)] ],                                         // 下落(臂上举)
+    DIVE:   [ ['WIDE', wide([[10,9,6,2,'S']], [[1,5,4,2,'S']])],           // 横卧准备(f15615)
+              ['TURN', turn],                                              // 转向团身(f15616)
+              ['VERT', vertD()] ],                                         // 垂直下沉(f15617..19)
+    UW:     [ ['WIDE', wide([[16,1,6,2,'S']], [[1,5,4,2,'S']])],           // 划水: 臂前伸
+              ['WIDE', wide([[10,9,6,2,'S']], [[0,2,4,2,'S'],[0,8,4,2,'S']])] ],  // 划水: 臂后摆+打腿
+    UWB:    [ ['WIDE', wide([[2,1,8,2,'S']], [[1,4,4,2,'S']])],            // 加速流线: 臂后贴身
+              ['WIDE', wide([[2,1,8,2,'S']], [[0,2,4,2,'S'],[0,8,4,2,'S']])] ],
+    UWU:    [ ['TALL', tall(7)] ],                                         // 纯↑头朝上
+    UWD:    [ ['VERT', vertD()] ],                                         // 纯↓/静止头朝下蜷身
+    EMERGE: [ ['TALL', tall(4)] ],                                         // 上浮出水(臂高举)
+    BREATH: [ ['TALL', tall(9)],                                           // 准备低姿
+              ['TALL', tall(6, [[7,4,2,2,'O']])],                          // 上升挺起+张嘴
+              ['TALL', [[5,1,6,6,'S'],[5,1,6,1,'s'],[9,3,2,2,'W'],[4,7,8,7,'T'],
+                        [0,4,4,2,'S'],[12,4,4,2,'S'],[7,4,2,2,'O'],
+                        [5,14,2,7,'S'],[9,14,2,7,'S'],[4,20,3,2,'s'],[9,20,3,2,'s']] ],  // 顶峰展臂+张嘴
+              ['TALL', tall(6)] ],                                         // 回落
+    KICK:   [ ['WIDE', wide([[10,9,6,2,'S']], [[3,4,4,3,'S']])],           // 收腿(起手/收招)
+              ['WIDE', wide([[4,1,6,2,'S']], [[0,2,5,2,'S'],[0,7,5,2,'S']])] ],  // 向后蹬直(有效相位)
+    HIT:    [ ['VERT', vertU()],                                           // 受击僵直
+              ['WIDE', wide([[10,0,4,2,'S']], [[1,5,4,2,'S']])] ],         // 横甩
+    DROWN:  [ ['VERT', vertU([[1,7,1,7,'S'],[10,7,1,7,'S']])],             // 气绝漂浮(臂下垂)
+              ['WIDE', wide([[8,9,3,3,'S']], [[1,6,4,2,'S']])] ],
+    LOSE:   [ ['TALL', [[5,3,6,6,'S'],[5,3,6,1,'s'],[9,5,2,2,'W'],[4,9,8,7,'T'],   // 败北垂头
+                        [2,9,2,6,'S'],[12,9,2,6,'S'],
+                        [5,16,2,5,'S'],[9,16,2,5,'S'],[4,20,3,2,'s'],[9,20,3,2,'s']] ],
+              ['TALL', tall(7)] ],
+    GRAPPLE:          [ ['TALL', tall(7, [[11,6,5,2,'S']])],               // 肩组纠缠(臂前抓)
+                        ['TALL', tall(7, [[11,9,5,2,'S']])] ],
+    GRAPPLE_STRUGGLE: [ ['TALL', tall(7, [[11,4,5,2,'S']])],               // 挣脱拉扯
+                        ['TALL', tall(7, [[11,10,5,2,'S']])] ],
+    GRAPPLE_PUNCH:    [ ['TALL', tall(7)],                                 // 收拳
+                        ['TALL', tall(7, [[11,5,5,2,'S']])] ],             // 出拳
+    MOUNT:            [ ['TALL', tall(7, [[3,14,2,7,'S'],[11,14,2,7,'S'],[11,6,5,2,'S']])],  // 骑姿跨腿
+                        ['TALL', tall(7, [[3,14,2,7,'S'],[11,14,2,7,'S'],[11,8,5,2,'S']])] ],
+    MOUNTED:          [ ['VERT', vertU([[1,2,2,4,'S'],[9,2,2,4,'S']])],    // 被骑挣扎
+                        ['TALL', tall(4)] ],
+    LEGPULL:          [ ['WIDE', wide([[14,0,2,4,'S']], [[1,5,4,2,'S']])],           // 一臂上伸抓
+                        ['WIDE', wide([[12,0,2,4,'S'],[16,0,2,4,'S']], [[1,5,4,2,'S']])] ],  // 双臂上抓
+    LEGPULLED:        [ ['WIDE', wide([[10,0,3,2,'S'],[6,10,3,2,'S']], [[1,5,4,2,'S']])],    // 被拉乱挥
+                        ['VERT', vertD()] ],                               // 被拖头朝下
   };
-  /* 尚无正式美术的动作: 用最接近的既有姿态占位, 全部标 placeholder:true。
-     玩法代码现在就能引用它们并写完整状态机, 不必等美术定稿。
-     正式帧到位后, 只替换 SPRITES 段, 这张表整张消失。 */
-  const PLACE = {
-    KICK:             [[LAY.UW, () => BODY.UWB[0], side], [LAY.UW, () => BODY.UWB[1], side]],
-    HIT:              [[LAY.UWV, () => BODY.UWV[0], down], [LAY.UW, () => BODY.UW[1], side]],
-    DROWN:            [[LAY.UWV, () => BODY.UWV[0], down], [LAY.UW, () => BODY.UW[0], side]],
-    LOSE:             [[LAY.SURF, () => BODY.SURF[0], face], [LAY.SURF, () => BODY.SURF[1], face]],
-    GRAPPLE:          [[LAY.EMERGE, () => BODY.EMERGE[0], face], [LAY.SURF, () => BODY.SURF[1], face]],
-    GRAPPLE_STRUGGLE: [[LAY.SURF, () => BODY.SURF[1], face], [LAY.EMERGE, () => BODY.EMERGE[0], face]],
-    GRAPPLE_PUNCH:    [[LAY.EMERGE, () => BODY.EMERGE[0], face], [LAY.BREATH, () => BODY.BREATH[1], face]],
-    MOUNT:            [[LAY.SURF, () => BODY.JC[0], face], [LAY.SURF, () => BODY.JF[0], face]],
-    MOUNTED:          [[LAY.UWV, () => BODY.UWV[0], down], [LAY.SURF, () => BODY.SURF[0], face]],
-    LEGPULL:          [[LAY.UW, () => BODY.UW[0], side], [LAY.UW, () => BODY.UWB[0], side]],
-    LEGPULLED:        [[LAY.UW, () => BODY.UW[1], side], [LAY.UWV, () => BODY.UWV[0], down]],
+  const renderRects = (w, h, rects, mir) => {
+    const g = [];
+    for (let r = 0; r < h; r++) g.push(new Array(w).fill('.'));
+    for (const [x, y, rw, rh, ch] of rects){
+      const x0 = mir ? w - x - rw : x;
+      for (let r = y; r < y + rh; r++) for (let q = x0; q < x0 + rw; q++)
+        if (q >= 0 && q < w && r >= 0 && r < h) g[r][q] = ch;
+    }
+    return g.map(row => row.join(''));
   };
-  const build = (table, isPh) => {
-    for (const action in table) table[action].forEach((def, idx) => {
-      const [lay, bodyOf, headOf] = def;
-      for (const avatar of ['yy', 'dd']) for (const dir of [1, -1]){
-        const d = dir > 0 ? 'right' : 'left';
-        const rows = composeFrame(lay, bodyOf(avatar), headOf(avatar, d), HEAD_DY_FOR(action, idx, avatar), dir < 0);
-        const bbox = rowsBBox(rows);
-        SPRITES.frames[frameId(avatar, action, dir, idx)] = {
-          w: lay.w, h: lay.h, anchorX: lay.anchorX, anchorY: lay.anchorY,
-          rows, bbox,
-          /* hitbox/hurtbox 由 attachBoxes() 统一注入(在 BAKE 段之后执行,
-             占位版与本地美术版都走同一份按动作/相位给值的独立数据)。 */
-          hurtbox: [], hitbox: null,
-          placeholder: isPh,
-        };
-      }
-    });
-  };
-  build(REAL, false);
-  build(PLACE, true);
+  for (const action in SPEC) SPEC[action].forEach((def, idx) => {
+    const [g, rects] = def, [w, h, ax, ay] = GEO[g];
+    for (const avatar of ['yy', 'dd']) for (const dir of [1, -1]){
+      const rows = renderRects(w, h, rects, dir < 0);
+      SPRITES.frames[frameId(avatar, action, dir, idx)] = {
+        w, h, anchorX: ax, anchorY: ay,
+        rows, bbox: rowsBBox(rows),
+        /* hitbox/hurtbox 由 attachBoxes() 统一注入(在 BAKE 段之后执行,
+           占位版与本地美术版都走同一份按动作/相位给值的独立数据)。 */
+        hurtbox: [], hitbox: null,
+        placeholder: true,
+      };
+    }
+  });
 }
 
 /* ---------- 判定盒: 独立数据, 不再由像素外接框推导 ----------
    锚点相对坐标 {rx,ry,w,h}, 朝右为基准; 朝左在注入时按帧宽与锚点镜像。
    值按动作给; KICK/GRAPPLE_PUNCH 的 hitbox 按相位(帧idx)给: 起手/收招无判定, 有效相位才有。
    用锚点相对而不是帧内绝对坐标: 换美术(帧宽变化)时盒子跟随锚点语义, 玩法代码零改动。 */
-const BOX_TALL = { rx:-10, ry:-38, w:20, h:34 };   // 24x40 直立类(SURF系/EMERGE/BREATH/JUMP首尾帧)
-const BOX_SURF = { rx:-10, ry:-38, w:20, h:28 };   // 水面漂浮(身体没入水下部分不计)
-const BOX_WIDE = { rx:-18, ry:-22, w:36, h:22 };   // 38x24 横卧类(UW/UWB/KICK/JUMP空中/DIVE横卧)
-const BOX_DIVE1 = { rx:-18, ry:-26, w:36, h:24 };  // 38x32 下潜转向帧
-const BOX_VERT = { rx:-8,  ry:-38, w:17, h:32 };   // 24x40 垂直类(UWD/DIVE垂直)
+const BOX_TALL = { rx:-8, ry:-22, w:16, h:22 };   // 16x22 直立类(SURF系/EMERGE/BREATH/JUMP首尾帧)
+const BOX_SURF = { rx:-8, ry:-22, w:16, h:14 };   // 水面漂浮(身体没入水下部分不计)
+const BOX_WIDE = { rx:-12, ry:-12, w:24, h:12 };  // 24x12 横卧类(UW/UWB/KICK/JUMP空中/DIVE横卧)
+const BOX_TURN = { rx:-8, ry:-16, w:16, h:16 };   // 16x16 下潜转向团身帧
+const BOX_VERT = { rx:-6, ry:-20, w:12, h:20 };   // 12x20 垂直类(UWD/DIVE垂直)
 const HURTBOX = {
   SURF: BOX_SURF, JUMP: [BOX_TALL, BOX_WIDE, BOX_TALL], BREATH: BOX_TALL,
-  DIVE: [BOX_WIDE, BOX_DIVE1, BOX_VERT],
+  DIVE: [BOX_WIDE, BOX_TURN, BOX_VERT],
   UW: BOX_WIDE, UWB: BOX_WIDE, UWU: BOX_TALL, UWD: BOX_VERT, EMERGE: BOX_TALL,
   KICK: BOX_WIDE, HIT: [BOX_VERT, BOX_WIDE], DROWN: [BOX_VERT, BOX_WIDE],
   LOSE: BOX_SURF, GRAPPLE: [BOX_TALL, BOX_SURF], GRAPPLE_STRUGGLE: [BOX_SURF, BOX_TALL],
@@ -958,8 +1047,8 @@ const HURTBOX = {
   LEGPULL: BOX_WIDE, LEGPULLED: [BOX_WIDE, BOX_VERT],
 };
 const HITBOX = {
-  KICK: [null, { rx:9, ry:-20, w:16, h:16 }],          // idx0起手/收招无判定, idx1有效相位打身前
-  GRAPPLE_PUNCH: [null, { rx:2, ry:-32, w:16, h:12 }], // B3 接肩组时按相位复核
+  KICK: [null, { rx:6, ry:-10, w:12, h:10 }],          // idx0起手/收招无判定, idx1有效相位打身前
+  GRAPPLE_PUNCH: [null, { rx:2, ry:-18, w:14, h:10 }], // B3 接肩组时按相位复核
 };
 const boxSpec = (table, action, idx) => {
   const v = table[action];
@@ -986,7 +1075,7 @@ function HEAD_DY_FOR(action, idx, avatar){
   return faceFrame ? HEAD_DY[avatar] : 0;
 }
 /* BAKE:SPRITES:BEGIN —— 本段由 bake.py 整段替换, 手工编辑会在下次 bake 时丢失 */
-bakeFrames();                       // 占位资产: 由阶段2/3已验收像素合成, 全部 placeholder:true
+bakeFrames();                       // 调试资产: ~24px程序化简单轮廓(家庭bake禁用中), 全部 placeholder:true
 /* BAKE:SPRITES:END */
 attachBoxes();                      // 判定盒注入: 对占位帧与 bake.py 正式帧同样生效
 
@@ -1025,7 +1114,8 @@ function drawFrame(f, x, y, colors, uw){
 /* ---------- 角色状态机 (锚点=脚底中心, 全整数定点: 坐标/速度/斜向系数均为fp整数, 1px=256fp) ---------- */
 const ST = { SURF:'SURF', JUMP:'JUMP', DIVE:'DIVE', UW:'UW', EMERGE:'EMERGE', BREATH:'BREATH',
              DROWN:'DROWN', LOSE:'LOSE', KICK:'KICK', HIT:'HIT',
-             GRAPPLE:'GRAPPLE', GRAPPLE_STRUGGLE:'GRAPPLE_STRUGGLE', GRAPPLE_PUNCH:'GRAPPLE_PUNCH' };
+             GRAPPLE:'GRAPPLE', GRAPPLE_STRUGGLE:'GRAPPLE_STRUGGLE', GRAPPLE_PUNCH:'GRAPPLE_PUNCH',
+             MOUNT:'MOUNT', MOUNTED:'MOUNTED', LEGPULL:'LEGPULL', LEGPULLED:'LEGPULLED' };
 const FOOT_SURF_Fp = FP(ORIGINAL_TUNING.surfFootY);            // 水面脚底锚点 y=108
 /* 统一横向钳制带(与状态无关→切换不瞬移)。
    ** 必须由当前 SPRITES 资产推导, 不能写死 **: 占位帧宽38px、概念图正式帧宽61px,
@@ -1043,15 +1133,16 @@ function spriteExtents(){
 const EXT = spriteExtents();
 const ANCHOR_X_MIN_Fp = FP(EXT.left), ANCHOR_X_MAX_Fp = FP(LW - 1 - EXT.right);
 function mkChar(xFp, dir, avatar, team){
+  const stats = profileForId(avatar);
   return { axFp: xFp, ayFp: FOOT_SURF_Fp, dir, prefDir: 0, avatar, team,   // R3: 预选方向初始0(无证据默认朝向水平跳)
            state: ST.SURF, t: 0, boostFp: 0, airFp: ORIGINAL_TUNING.airMaxFp,
-           hpFp: ORIGINAL_TUNING.hpMaxFp,
+           hpFp: profileMaxHpFp(avatar), maxHpFp: profileMaxHpFp(avatar), stats,
            swimT: 0, jumpDir: 0, jumpX0Fp: xFp, emergeFromFp: 0, uwPose: 'H',   // R6: UW方向三态 H横卧/U头朝上/D头朝下
-           id: avatar, input: 'IDLE', hitDir: 0, iid: null, punchSeq: 0 };   // id=interaction里的角色标识; input=inputSource键; iid=持有的交互id; punchSeq=出拳序号(命中事件去重键的一部分)
+           id: avatar, input: 'IDLE', hitDir: 0, iid: null, punchSeq: 0, medals: 0 };   // medals=本场拾取数(原版总赛程货币; 单项赛不改胜负)
 }
-const yy  = mkChar(FP(94), 1, 'yy', '#3C9CF0');    // 阳阳(玩家)
-const dad = mkChar(FP(180), -1, 'dd', '#F83800');  // 爸爸(B5前为空输入)
-yy.input = '1P';
+const yy  = mkChar(FP(94), 1, 'yy', '#3C9CF0');    // 阳阳(1P)
+const dad = mkChar(FP(180), -1, 'dd', '#F83800');  // 爸爸(2P)
+yy.input = '1P'; dad.input = '2P';                 // 2026-08-27起固定本地双人1v1, 启动即双人对战
 const parts = [];                                  // 粒子 {type, xFp, yFp, t, inAir} 全整数
 
 function spawnSplash(xFp, yFp){ parts.push({ type:'splash', xFp: xFp - FP(4), yFp: yFp - FP(2), t: 0, inAir: false }); }
@@ -1099,6 +1190,10 @@ function frameIdFor(c){
     case ST.GRAPPLE:          action = 'GRAPPLE';          idx = Math.floor(c.t / 16) % 2; break;
     case ST.GRAPPLE_STRUGGLE: action = 'GRAPPLE_STRUGGLE'; idx = Math.floor(c.t / 8) % 2; break;
     case ST.GRAPPLE_PUNCH:    action = 'GRAPPLE_PUNCH';    idx = punchPhaseOf(c.t) === 'ACTIVE' ? 1 : 0; break;
+    case ST.MOUNT:    action = 'MOUNT';    idx = Math.floor(c.t / 16) % 2; break;
+    case ST.MOUNTED:  action = 'MOUNTED';  idx = Math.floor(c.t / 8) % 2; break;   // 被骑挣扎两帧
+    case ST.LEGPULL:  action = 'LEGPULL';  idx = c.t < T.legpullGrabTicks ? 0 : 1; break;  // 抓住/拖拽
+    case ST.LEGPULLED: action = 'LEGPULLED'; idx = c.t < T.legpullGrabTicks ? 0 : 1; break;
     case ST.BREATH: action = 'BREATH'; idx = breathBodyIdx(c.t) + 1; break;   // −1..2 → 0..3
     case ST.DROWN:  action = 'DROWN';  idx = Math.floor(c.t / 16) % 2; break; // 占位帧
     case ST.LOSE:   action = 'LOSE';   idx = Math.floor(c.t / 24) % 2; break; // 占位帧
@@ -1113,8 +1208,8 @@ function tickChar(c, inp, intent){
   switch (c.state){
     case ST.SURF: {
       c.ayFp = FOOT_SURF_Fp;
-      if (inp.L){ c.dir = -1; c.prefDir = -1; c.axFp -= T.surfDriftFp; }  // 保存最后方向(跳跃预选)
-      if (inp.R){ c.dir = 1;  c.prefDir = 1;  c.axFp += T.surfDriftFp; }
+      if (inp.L){ c.dir = -1; c.prefDir = -1; }  // 水面锁位(2026-08-26用户裁决): ←/→仅换向+跳跃预选, 不平移
+      if (inp.R){ c.dir = 1;  c.prefDir = 1;  }
       if (inp.pA){                                             // 跳跃: 方向键>预选方向; 都无→0垂直跳
         c.state = ST.JUMP; c.t = 0;
         c.jumpDir = inp.L ? -1 : inp.R ? 1 : c.prefDir;
@@ -1152,6 +1247,7 @@ function tickChar(c, inp, intent){
       const n = c.t, N = T.jumpTicks;
       c.ayFp = FOOT_SURF_Fp - ((T.jumpRiseFp * 4 * n * (N - n) / (N * N)) | 0);
       c.axFp += c.jumpDir * T.jumpMoveXFp;
+      c.airFp = Math.min(T.airMaxFp, c.airFp + T.airRecoverFp); // 身体离水期间按水面规则回气
       if (c.t >= N){
         c.state = ST.SURF; c.t = 0; c.ayFp = FOOT_SURF_Fp;
         spawnSplash(c.axFp, T.splashYFp);
@@ -1179,7 +1275,8 @@ function tickChar(c, inp, intent){
       if (moving && inp.pA)                                // 仅"移动中+A新边沿"才累积, 静止不储能
         c.boostFp = Math.min(T.boostMaxFp, c.boostFp + T.boostPerPressFp);
       c.boostFp = Math.max(0, c.boostFp - T.boostDecayFp);
-      let sp = T.swimSpeedFp + c.boostFp;
+      /* 原版游速与角色 speed 属性成比例；A连打加速仍属于游速的一部分，一并缩放。 */
+      let sp = Math.round((T.swimSpeedFp + c.boostFp) * c.stats.speed / PROFILE_BASE.speed);
       if (dx && dy) sp = (sp * T.diagFp) >> 8;                 // 整数斜向系数 181/256≈0.707
       c.axFp += dx * sp; c.ayFp += dy * sp;
       if (moving){
@@ -1229,20 +1326,71 @@ function tickChar(c, inp, intent){
       if (c.t >= T.hitStunTicks){ c.state = ST.UW; c.t = 0; c.uwPose = 'D'; }
       break;
     }
-    /* 肩组三态: 位置由 resolvePair/pinGrapple 钉在共用接触锚点上, 这里只推进计时与出拳 */
+    /* 肩组三态: 双方都能连打B出拳; 水下全程持续耗氧, 直到一方气绝/败北 */
     case ST.GRAPPLE: {
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false); break;
+      }
       const it = intent || decide(c, snapChar(c), null, inp);
       if (it.startPunch){ c.state = ST.GRAPPLE_PUNCH; c.t = 0; c.punchSeq++; }
       break;
     }
     case ST.GRAPPLE_PUNCH: {                           // 出拳: 起手/有效/收招, 命中判定在 resolvePair
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false); break;
+      }
       if (c.t >= T.punchTotalTicks){ c.state = ST.GRAPPLE; c.t = 0; }
       break;
     }
-    case ST.GRAPPLE_STRUGGLE: {                        // 被揍/挣扎: 对方收招后由 GRAPPLE_SETTLE 带回对峙
+    case ST.GRAPPLE_STRUGGLE: {                        // 被揍硬直; 对方收招后由 GRAPPLE_SETTLE 带回对峙
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+      }
+      break;
+    }
+    /* 骑头两态: 位置由 pinMount 钉在共用接触锚点上(规格书108); 脱身=被骑方按住↓下潜, 无连打挣脱槽(规格书67/334) */
+    case ST.MOUNT: {                                     // 骑手: 钉在被骑者头顶, 无自主移动
+      c.airFp = Math.min(T.airMaxFp, c.airFp + T.airRecoverFp); // 骑手在水面之上
+      break;
+    }
+    case ST.MOUNTED: {                                   // 被骑: 持续消耗AIR(不是HP); 按住↓的脱身积攒在resolvePair
+      c.ayFp = FOOT_SURF_Fp;
+      c.airFp = Math.max(0, c.airFp - T.mountDrainFp);
+      if (c.airFp <= 0){                                 // 氧气归零→气绝(硬标准), 骑手由resolvePair放落
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+      }
+      break;
+    }
+    /* 拉脚两态: 抓住/拖拽/释放三相位由 interaction.pairTick 驱动, pinLegpull 钉位(规格书244) */
+    case ST.LEGPULL: {                                   // 拉脚者: 锁定在抓住点
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);      // 拉人者仍在水下, 同样耗氧
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+      }
+      break;
+    }
+    case ST.LEGPULLED: {                                 // 被拉: 拖入水中并消耗AIR
+      c.airFp = Math.max(0, c.airFp - T.legpullDrainFp);
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
+      }
       break;
     }
     case ST.EMERGE: {
+      c.airFp = Math.max(0, c.airFp - T.airDrainFp);
+      if (c.airFp <= 0){
+        c.state = ST.DROWN; c.t = 0; c.boostFp = 0; c.uwPose = 'D';
+        spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false); break;
+      }
       const from = c.emergeFromFp, to = FOOT_SURF_Fp;
       c.ayFp = from - (((from - to) * c.t / T.emergeTicks) | 0);
       if (c.t >= T.emergeTicks || c.ayFp <= to){
@@ -1283,6 +1431,51 @@ function tickParts(){
 
 const IDLE_INPUT = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
 
+let medalRngState = 0x51A7E19;
+function medalRnd256(){ medalRngState = (Math.imul(medalRngState, 1664525) + 1013904223) | 0; return (medalRngState >>> 24) & 255; }
+
+/* 原版池底奖牌: 从池底斜向上浮, 碰到水下人物即被拾取。奖牌属于总赛程货币，
+   本单项赛只记录拾取数，不把它混入HP胜负判定。 */
+const poolMedals = [];
+let medalSpawnIn = ORIGINAL_TUNING.medalFirstTicks;
+function spawnPoolMedal(){
+  const T = ORIGINAL_TUNING;
+  const x = 30 + (medalRnd256() % 197);
+  const dir = (medalRnd256() & 1) ? 1 : -1;
+  const drift = T.medalDriftMinFp + (medalRnd256() % T.medalDriftSpanFp);
+  poolMedals.push({ xFp: FP(x), yFp: T.medalSpawnYFp, vxFp: dir * drift, t: 0 });
+}
+function canCollectMedal(c){
+  return c.state === ST.UW || c.state === ST.KICK || c.state === ST.HIT ||
+         isGrappleState(c.state) || c.state === ST.LEGPULL || c.state === ST.LEGPULLED ||
+         c.state === ST.DROWN;
+}
+function tickPoolMedals(){
+  const T = ORIGINAL_TUNING;
+  if (--medalSpawnIn <= 0){ spawnPoolMedal(); medalSpawnIn = T.medalEveryTicks; }
+  for (let i = poolMedals.length - 1; i >= 0; i--){
+    const m = poolMedals[i]; m.t++; m.xFp += m.vxFp; m.yFp -= T.medalRiseFp;
+    if (m.xFp < FP(20) || m.xFp > FP(236)) m.vxFp = -m.vxFp;
+    if (m.yFp <= T.medalPopYFp){ poolMedals.splice(i, 1); continue; }
+    const mx = m.xFp >> 8, my = m.yFp >> 8;
+    const hits = [];
+    for (const c of [yy, dad]){
+      if (!canCollectMedal(c)) continue;
+      const b = frameBox(c, 'hurtbox');
+      if (b && mx + 4 > b[0] && mx < b[0] + b[2] && my + 4 > b[1] && my < b[1] + b[3]){
+        const dx = c.axFp - m.xFp, dy = c.ayFp - m.yFp;
+        hits.push({ c, d2: dx * dx + dy * dy });
+      }
+    }
+    if (hits.length){
+      hits.sort((a,b) => a.d2 - b.d2);
+      if (hits.length > 1 && hits[0].d2 === hits[1].d2) continue; // 完全同时接触时延后一帧, 不给1P先手偏差
+      hits[0].c.medals++;
+      poolMedals.splice(i, 1);
+    }
+  }
+}
+
 /* =====================================================
    B2: 同步战斗内核 — 快照式结算 + inputSource 抽象 + 唯一 interaction 骨架 + 水下踢击
    tick() 的 FIGHT 分支按四段组织(规格书3.1), 消除"先tick者占便宜"的先手偏差:
@@ -1291,27 +1484,33 @@ const IDLE_INPUT = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
      ③ resolvePair() 统一解析命中/优先级, 驱动唯一一个 interaction 对象
      ④ commit: tickChar×2 + applyFx, 双方效果同一tick内一起落地
    ===================================================== */
-/* 输入源抽象: 1P键盘 / IDLE空输入; 2P / CPU / REPLAY 在 B5 接入本表, tick() 不变 */
+/* 输入源抽象: 1P键盘(WASD+F/G) / 2P第二键位(方向键+K/L) / IDLE空输入;
+   REPLAY 可复用本表接入做自动验收(非玩家模式), tick() 不变。
+   2026-08-27: 项目只做本地双人1v1, CPU/AI输入源已删除。 */
 const InputSources = {
   '1P':   () => Input,
+  '2P':   () => Input2,
   'IDLE': () => IDLE_INPUT,
 };
-function readInput(c){ return InputSources[c.input](); }
+function readInput(c){ return InputSources[c.input](c); }
 
 function snapChar(c){                                  // ① 快照: 结算期间对方只能读到这份冻结值
   return { id: c.avatar, avatar: c.avatar, axFp: c.axFp, ayFp: c.ayFp, dir: c.dir,
            state: c.state, t: c.t, uwPose: c.uwPose, swimT: c.swimT, boostFp: c.boostFp,
-           hpFp: c.hpFp, airFp: c.airFp, punchSeq: c.punchSeq };
+           hpFp: c.hpFp, airFp: c.airFp, punchSeq: c.punchSeq, jumpDir: c.jumpDir };
 }
-/* ② 意图: 只读快照与输入。本轮有踢击/出拳两种; 骑头/拉脚的意图在 B3b 挂进同一结构 */
+/* ② 意图: 只读快照与输入。踢击/出拳/挣脱/拉脚/骑乘下潜都从这里进, 骑头扫掠在resolvePair */
 function decide(c, self, foe, inp){
-  /* 肩组中的角色分工(建立时定死): 主动方按B=出拳; 被抓方按A/B=连打挣脱(不是出拳) */
-  const role = interaction && interaction.kind === 'GRAPPLE'
-    ? (interaction.aId === c.id ? interaction.aRole : interaction.bRole) : null;
+  const T = ORIGINAL_TUNING;
+  /* 拉脚条件(规格书66/333/444): 仅当自己在水下、敌在水面、且在其正下方可达范围内 */
+  const legpullAble = !!(foe && (foe.state === ST.SURF || foe.state === ST.BREATH) &&
+    Math.abs(foe.axFp - self.axFp) <= T.legpullRangeFp &&
+    self.ayFp > foe.ayFp && self.ayFp - foe.ayFp <= T.legpullReachFp);
   return {
-    startKick:  !!(inp.pB && self.state === ST.UW),
-    startPunch: !!(inp.pB && self.state === ST.GRAPPLE && role === 'attacker'),
-    struggle:   !!(inp.pA || inp.pB),                  // 连打边沿; 只有被抓方积攒(见resolvePair)
+    startKick:  !!(inp.pB && self.state === ST.UW && !(inp.U && legpullAble)),  // ↑+B优先判拉脚
+    startLegpull: !!(inp.pB && inp.U && self.state === ST.UW && legpullAble),
+    startPunch: !!(inp.pB && self.state === ST.GRAPPLE), // 原版: 肩组双方都可连打B出拳
+    diveHeld:   !!inp.D,                               // 被骑方按住↓下潜脱身(骑乘专用, 非连打)
     moveX: (inp.R ? 1 : 0) - (inp.L ? 1 : 0),
     moveY: (inp.D ? 1 : 0) - (inp.U ? 1 : 0),
     active: !!(inp.L || inp.R || inp.U || inp.D || inp.A || inp.B || inp.pA || inp.pB),
@@ -1319,11 +1518,13 @@ function decide(c, self, foe, inp){
 }
 
 /* 唯一成对交互对象。建立/中断/结束都发生在 resolvePair/commit 的同一tick内(原子);
-   两个角色只持有它的 id(c.iid)。kind 现有 'KICK' 与 'GRAPPLE', 结构按四种交互设计。
-   字段语义(B3a 复核, 台账S-05):
+   两个角色只持有它的 id(c.iid)。kind 现有 'KICK' / 'GRAPPLE' / 'MOUNT' / 'LEGPULL' 四种(规格书108)。
+   字段语义(B3a 复核, 台账S-05; B3b 扩展):
      pairAnchor  KICK=双方锚点中点(仅信息); GRAPPLE=共用接触锚点, 建立时定格, 双方每tick钉在它上面
-     facing      KICK=攻击方朝向; GRAPPLE=从 aId 指向 bId 的纠缠朝向(决定钉位左右)
-     drawOrder   防守方/被揍方先画, 攻击方/出拳方叠上层; 肩组对峙时发起方(aId)在上 */
+                 MOUNT=被骑者钉位(水面); LEGPULL=[被拉者x, 拉脚者所在深度]
+     facing      KICK=攻击方朝向; GRAPPLE=从 aId 指向 bId 的纠缠朝向(决定钉位左右); MOUNT=骑手朝向
+     drawOrder   被揍方/被骑/被拉先画, 出拳方/骑手/拉脚者叠上层; 肩组对峙时发起方(aId)在上
+     escapeFp    仅MOUNT使用: 被骑方按住↓的下潜积攒(规格书67, 非连打) */
 let interaction = null;
 let nextIid = 1;
 
@@ -1340,9 +1541,32 @@ function punchPhaseOf(t){
 function isGrappleState(st){
   return st === ST.GRAPPLE || st === ST.GRAPPLE_PUNCH || st === ST.GRAPPLE_STRUGGLE;
 }
+function isMountState(st){ return st === ST.MOUNT || st === ST.MOUNTED; }
+function isLegpullState(st){ return st === ST.LEGPULL || st === ST.LEGPULLED; }
 function movingToward(self, foe, d){                    // 输入方向与敌我相对位置同号 = 朝对手移动
   return !!((d.moveX && (foe.axFp - self.axFp) * d.moveX > 0) ||
             (d.moveY && (foe.ayFp - self.ayFp) * d.moveY > 0));
+}
+/* 骑头进入判定(规格书5.6/286): 上一tick→下一tick脚底向下扫掠 + 水平重叠 + 目标可骑状态 三者共同判定。
+   只看当前外接框是否相交会在下落快时穿过去, 所以用 sR.t→sR.t+1 的抛物线扫掠段。 */
+function mountSweep(sR, sV){
+  const T = ORIGINAL_TUNING;
+  if (sR.state !== ST.JUMP) return false;
+  if (!(sV.state === ST.SURF || sV.state === ST.BREATH)) return false;   // 目标可骑状态: 水面
+  const n = sR.t, N = T.jumpTicks;
+  if (n >= N) return false;
+  const y0 = FOOT_SURF_Fp - ((T.jumpRiseFp * 4 * n * (N - n) / (N * N)) | 0);
+  const y1 = FOOT_SURF_Fp - ((T.jumpRiseFp * 4 * (n + 1) * (N - n - 1) / (N * N)) | 0);
+  if (y1 <= y0) return false;                                  // 只取下降段
+  const seat = sV.ayFp - T.mountSeatFp;
+  if (!(y0 < seat && y1 >= seat)) return false;                // 本tick脚底向下跨过骑座线
+  const x1 = sR.axFp + sR.jumpDir * T.jumpMoveXFp;             // 下一tick水平位置
+  const rb = frameBox({ id: sR.id, avatar: sR.avatar, axFp: x1, ayFp: sR.ayFp, dir: sR.dir,
+                        state: sR.state, t: sR.t, uwPose: sR.uwPose, swimT: sR.swimT,
+                        boostFp: sR.boostFp, hpFp: sR.hpFp, airFp: sR.airFp,
+                        punchSeq: sR.punchSeq, jumpDir: sR.jumpDir }, 'hurtbox');
+  const vb = frameBox(sV, 'hurtbox');
+  return !!(rb && vb && rb[0] < vb[0] + vb[2] && vb[0] < rb[0] + rb[2]);   // 水平重叠
 }
 /* 快照角色当前帧的判定盒 → 世界坐标 [x, y, w, h] (与 drawSwimmers 同一定位) */
 function frameBox(snap, kind){
@@ -1362,9 +1586,16 @@ function resolvePair(sA, sB, dA, dB){
   const kickA = sA.state === ST.KICK || dA.startKick;
   const kickB = sB.state === ST.KICK || dB.startKick;
   const grapA = isGrappleState(sA.state), grapB = isGrappleState(sB.state);
+  const mntA = isMountState(sA.state), mntB = isMountState(sB.state);
+  const legA = isLegpullState(sA.state), legB = isLegpullState(sB.state);
   if (interaction && interaction.kind === 'GRAPPLE' && (grapA || grapB)){
     /* ---- 肩组中 ---- */
     interaction.pairTick++;
+    if (!(grapA && grapB)){
+      /* 任一方缺氧/KO离开肩组, 另一方同时释放; 原版没有原创超时或挣脱槽。 */
+      fx.push({ type: 'GRAPPLE_OFF' });
+      return fx;
+    }
     const puncher = sA.state === ST.GRAPPLE_PUNCH ? sA : sB.state === ST.GRAPPLE_PUNCH ? sB : null;
     interaction.phase = puncher ? punchPhaseOf(puncher.t) : 'HOLD';
     interaction.drawOrder = puncher ? [ (puncher === sA ? sB : sA).id, puncher.id ]
@@ -1377,7 +1608,7 @@ function resolvePair(sA, sB, dA, dB){
       const hb = frameBox(att, 'hitbox'), db = frameBox(def, 'hurtbox');
       if (hb && db && boxOverlap(hb, db)){
         interaction.appliedEvents[evId] = true;
-        fx.push({ type: 'PUNCH_HIT', targetId: def.id });
+        fx.push({ type: 'PUNCH_HIT', sourceId: att.id, targetId: def.id });
       }
     }
     /* 被揍方在对方收招后回到对峙 */
@@ -1385,15 +1616,31 @@ function resolvePair(sA, sB, dA, dB){
       fx.push({ type: 'GRAPPLE_SETTLE', targetId: sA.id });
     if (sB.state === ST.GRAPPLE_STRUGGLE && sA.state !== ST.GRAPPLE_PUNCH)
       fx.push({ type: 'GRAPPLE_SETTLE', targetId: sB.id });
-    /* 被抓方连打挣脱: 防守方(建立时非主动的一方)的 A/B 边沿累积挣脱值, 攒满强制解开。
-       攻击方出拳不影响挣脱值 —— 这条路径只被抓方自己说了算。 */
-    const defD = interaction.aRole === 'defender' ? dA : interaction.bRole === 'defender' ? dB : null;
-    if (defD && defD.struggle) interaction.escapeFp += T.escapePerPressFp;
-    /* 解开三条确定路径: 被抓方挣脱值攒满 / 双方全无输入持续 grappleIdleTicks / 纠缠达 grappleMaxTicks 上限 */
-    if (dA.active || dB.active) interaction.idleN = 0; else interaction.idleN++;
-    if (interaction.escapeFp >= T.escapeMaxFp ||
-        interaction.idleN >= T.grappleIdleTicks || interaction.pairTick >= T.grappleMaxTicks)
-      fx.push({ type: 'GRAPPLE_OFF' });
+  } else if (interaction && interaction.kind === 'MOUNT' && (mntA || mntB)){
+    /* ---- 骑乘中: 骑手钉在被骑者头顶持续耗氧; 脱身=被骑方按住↓下潜(规格书67/334, 无连打挣脱槽) ---- */
+    interaction.pairTick++;
+    const victimS = sA.state === ST.MOUNTED ? sA : sB.state === ST.MOUNTED ? sB : null;
+    if (!victimS){                                     // 被骑方已在commit中离开(气绝) → 骑手落水
+      fx.push({ type: 'MOUNT_OFF', how: 'DROP' });
+    } else {
+      const defD = interaction.aRole === 'defender' ? dA : dB;
+      if (defD && defD.diveHeld) interaction.escapeFp += FP(1);
+      else interaction.escapeFp = Math.max(0, interaction.escapeFp - FP(1));   // 松开回退, 与DIVE同律
+      interaction.phase = defD && defD.diveHeld ? 'ESCAPE' : 'RIDE';
+      if (interaction.escapeFp >= T.mountEscapeFp) fx.push({ type: 'MOUNT_OFF', how: 'DIVE' });
+    }
+  } else if (interaction && interaction.kind === 'LEGPULL' && (legA || legB)){
+    /* ---- 拉脚中: 抓住/拖拽/释放三相位(规格书244), 被拉方持续耗氧 ---- */
+    interaction.pairTick++;
+    const pulledS = sA.state === ST.LEGPULLED ? sA : sB.state === ST.LEGPULLED ? sB : null;
+    if (!pulledS){                                     // 被拉方已在commit中离开(气绝) → 提前释放
+      fx.push({ type: 'LEGPULL_OFF' });
+    } else {
+      interaction.phase = interaction.pairTick < T.legpullGrabTicks ? 'GRAB'
+                        : interaction.pairTick < T.legpullGrabTicks + T.legpullDragTicks ? 'DRAG' : 'RELEASE';
+      if (interaction.pairTick >= T.legpullGrabTicks + T.legpullDragTicks)
+        fx.push({ type: 'LEGPULL_OFF' });
+    }
   } else if (kickA || kickB){
     if (!interaction){
       interaction = { id: nextIid++, kind: 'KICK', phase: 'STARTUP', pairTick: 0,
@@ -1417,21 +1664,41 @@ function resolvePair(sA, sB, dA, dB){
       const hb = frameBox(att, 'hitbox'), db = frameBox(def, 'hurtbox');
       if (hb && db && boxOverlap(hb, db)){
         interaction.appliedEvents[evId] = true;
-        fx.push({ type: 'HIT', targetId: def.id, knockDir: def.axFp >= att.axFp ? 1 : -1 });
+        fx.push({ type: 'HIT', sourceId: att.id, targetId: def.id, knockDir: def.axFp >= att.axFp ? 1 : -1 });
       }
     }
-  } else if (!interaction && sA.state === ST.UW && sB.state === ST.UW){
-    /* 肩组进入(规格书3.3): 水下、未肩组、朝对手方向移动并接触 → 本tick双方一起进(commit落地) */
-    const towA = movingToward(sA, sB, dA), towB = movingToward(sB, sA, dB);
-    const ha = frameBox(sA, 'hurtbox'), hb = frameBox(sB, 'hurtbox');
-    if ((towA || towB) && ha && hb && boxOverlap(ha, hb)){
-      interaction = { id: nextIid++, kind: 'GRAPPLE', phase: 'HOLD', pairTick: 0,
-                      aId: sA.id, bId: sB.id,
-                      aRole: towA ? 'attacker' : 'defender', bRole: towB ? 'attacker' : 'defender',
-                      pairAnchor: [ (sA.axFp + sB.axFp) >> 1, (sA.ayFp + sB.ayFp) >> 1 ],
-                      facing: sB.axFp >= sA.axFp ? 1 : -1,
-                      drawOrder: [sB.id, sA.id], appliedEvents: {}, idleN: 0, escapeFp: 0 };
-      fx.push({ type: 'GRAPPLE_ON' });
+  } else if (!interaction){
+    /* 进入判定(按状态互斥, 不会同时成立): 拉脚(仅水面敌人正下方↑+B) / 骑头(扫掠) / 肩组(水下接触) */
+    const pull = dA.startLegpull ? [sA, sB] : dB.startLegpull ? [sB, sA] : null;
+    const mnt = pull ? null : mountSweep(sA, sB) ? [sA, sB] : mountSweep(sB, sA) ? [sB, sA] : null;
+    if (pull){
+      interaction = { id: nextIid++, kind: 'LEGPULL', phase: 'GRAB', pairTick: 0,
+                      aId: pull[0].id, bId: pull[1].id, aRole: 'attacker', bRole: 'defender',
+                      pairAnchor: [pull[1].axFp, pull[0].ayFp],      // [被拉者x, 拉脚者所在深度]
+                      facing: pull[0].dir, drawOrder: [pull[1].id, pull[0].id],
+                      appliedEvents: {}, idleN: 0, escapeFp: 0 };
+      fx.push({ type: 'LEGPULL_ON', pullerId: pull[0].id });
+    } else if (mnt){
+      interaction = { id: nextIid++, kind: 'MOUNT', phase: 'RIDE', pairTick: 0,
+                      aId: mnt[0].id, bId: mnt[1].id, aRole: 'attacker', bRole: 'defender',
+                      pairAnchor: [mnt[1].axFp, FOOT_SURF_Fp],       // 共用接触锚点=被骑者钉位
+                      facing: mnt[0].jumpDir || (mnt[1].axFp >= mnt[0].axFp ? 1 : -1),
+                      drawOrder: [mnt[1].id, mnt[0].id],             // 被骑者先画, 骑手叠上层
+                      appliedEvents: {}, idleN: 0, escapeFp: 0 };
+      fx.push({ type: 'MOUNT_ON', riderId: mnt[0].id });
+    } else if (sA.state === ST.UW && sB.state === ST.UW){
+      /* 肩组进入(规格书3.3): 水下、未肩组、朝对手方向移动并接触 → 本tick双方一起进(commit落地) */
+      const towA = movingToward(sA, sB, dA), towB = movingToward(sB, sA, dB);
+      const ha = frameBox(sA, 'hurtbox'), hb = frameBox(sB, 'hurtbox');
+      if ((towA || towB) && ha && hb && boxOverlap(ha, hb)){
+        interaction = { id: nextIid++, kind: 'GRAPPLE', phase: 'HOLD', pairTick: 0,
+                        aId: sA.id, bId: sB.id,
+                        aRole: towA ? 'attacker' : 'defender', bRole: towB ? 'attacker' : 'defender',
+                        pairAnchor: [ (sA.axFp + sB.axFp) >> 1, (sA.ayFp + sB.ayFp) >> 1 ],
+                        facing: sB.axFp >= sA.axFp ? 1 : -1,
+                        drawOrder: [sB.id, sA.id], appliedEvents: {}, idleN: 0, escapeFp: 0 };
+        fx.push({ type: 'GRAPPLE_ON' });
+      }
     }
   } else if (interaction){
     interaction = null;
@@ -1443,15 +1710,20 @@ function applyFx(fx){
   for (const e of fx){
     if (e.type === 'HIT'){
       const c = e.targetId === 'yy' ? yy : dad;
-      c.hpFp = Math.max(0, c.hpFp - T.kickDamageFp);
-      c.state = ST.HIT; c.t = 0; c.hitDir = e.knockDir; c.boostFp = 0;
+      c.hpFp = Math.max(0, c.hpFp - profileDamageFp(T.kickDamageFp, e.sourceId, e.targetId));
+      c.airFp = Math.max(0, c.airFp - T.kickAirDamageFp); // 官方: 受攻击会额外掉空气
+      c.state = c.airFp <= 0 ? ST.DROWN : ST.HIT;
+      c.t = 0; c.hitDir = e.knockDir; c.boostFp = 0;
+      if (c.state === ST.DROWN) c.uwPose = 'D';
       spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
       continue;
     }
-    if (e.type === 'PUNCH_HIT'){                          // 肩组出拳命中: 扣血+进挣扎, 不解开不击退
+    if (e.type === 'PUNCH_HIT'){                          // 肩组出拳命中: 扣血/空气+进受击硬直
       const c = e.targetId === 'yy' ? yy : dad;
-      c.hpFp = Math.max(0, c.hpFp - T.punchDamageFp);
-      c.state = ST.GRAPPLE_STRUGGLE; c.t = 0;
+      c.hpFp = Math.max(0, c.hpFp - profileDamageFp(T.punchDamageFp, e.sourceId, e.targetId));
+      c.airFp = Math.max(0, c.airFp - T.punchAirDamageFp);
+      c.state = c.airFp <= 0 ? ST.DROWN : ST.GRAPPLE_STRUGGLE; c.t = 0;
+      if (c.state === ST.DROWN) c.uwPose = 'D';
       spawnBubble(c.axFp, c.ayFp - T.uwBubbleUpFp, false);
       continue;
     }
@@ -1464,13 +1736,53 @@ function applyFx(fx){
       if (c.state === ST.GRAPPLE_STRUGGLE){ c.state = ST.GRAPPLE; c.t = 0; }
       continue;
     }
-    if (e.type === 'GRAPPLE_OFF'){                        // 解开: 双方各退半步回水下
+    if (e.type === 'GRAPPLE_OFF'){                        // 一方气绝/败北后解开; 仍在肩组的一方退回水下
       const f = interaction ? interaction.facing : 1;
       const a = interaction && interaction.aId === 'dd' ? dad : yy;
       const b = a === yy ? dad : yy;
-      a.state = ST.UW; a.t = 0; a.uwPose = 'H'; a.axFp -= f * T.grappleBreakFp;
-      b.state = ST.UW; b.t = 0; b.uwPose = 'H'; b.axFp += f * T.grappleBreakFp;
+      if (isGrappleState(a.state)){
+        a.state = ST.UW; a.t = 0; a.uwPose = 'H'; a.axFp -= f * T.grappleBreakFp;
+      }
+      if (isGrappleState(b.state)){
+        b.state = ST.UW; b.t = 0; b.uwPose = 'H'; b.axFp += f * T.grappleBreakFp;
+      }
       clampChar(a); clampChar(b);
+      interaction = null;
+      continue;
+    }
+    if (e.type === 'MOUNT_ON'){                           // 骑头成立: 骑手/被骑同tick进(commit落地)
+      const r = e.riderId === 'yy' ? yy : dad, v = r === yy ? dad : yy;
+      r.state = ST.MOUNT; r.t = 0; r.boostFp = 0;
+      v.state = ST.MOUNTED; v.t = 0; v.boostFp = 0;
+      continue;
+    }
+    if (e.type === 'MOUNT_OFF'){                          // 骑乘结束: 骑手落回水面; ↓脱身时被骑者已潜入水下
+      const r = interaction && interaction.aId === 'dd' ? dad : yy;
+      const v = r === yy ? dad : yy;
+      r.state = ST.SURF; r.t = 0; r.ayFp = FOOT_SURF_Fp; r.boostFp = 0;
+      spawnSplash(r.axFp, T.splashYFp);
+      if (e.how === 'DIVE'){
+        v.state = ST.UW; v.t = 0; v.ayFp = T.uwTopFp; v.uwPose = 'D'; v.boostFp = 0;
+        spawnBubble(v.axFp, v.ayFp - T.uwBubbleUpFp, false);
+      }                                                    // how==='DROP': 被骑方保持自己的状态(气绝)
+      interaction = null;
+      continue;
+    }
+    if (e.type === 'LEGPULL_ON'){                         // 拉脚成立: 双方同tick进
+      const p = e.pullerId === 'yy' ? yy : dad, v = p === yy ? dad : yy;
+      p.state = ST.LEGPULL; p.t = 0; p.boostFp = 0;
+      v.state = ST.LEGPULLED; v.t = 0; v.boostFp = 0;
+      spawnBubble(v.axFp, v.ayFp - T.uwBubbleUpFp, false);
+      continue;
+    }
+    if (e.type === 'LEGPULL_OFF'){                        // 释放: 拉脚者回水下, 被拉者留在拖入深度
+      const p = interaction && interaction.aId === 'dd' ? dad : yy;
+      const v = p === yy ? dad : yy;
+      p.state = ST.UW; p.t = 0; p.uwPose = 'H'; p.boostFp = 0;
+      if (v.state === ST.LEGPULLED){ v.state = ST.UW; v.t = 0; v.uwPose = 'D'; v.boostFp = 0; }
+      clampChar(p); clampChar(v);
+      interaction = null;
+      continue;
     }
   }
 }
@@ -1484,6 +1796,29 @@ function pinGrapple(){
   a.ayFp = b.ayFp = interaction.pairAnchor[1];
   a.dir = f; b.dir = -f;
 }
+/* 骑头钉位: 被骑者钉在共用接触锚点(水面), 骑手脚底钉在其头顶骑座线 —— 同一锚点驱动, 不漂移不穿插 */
+function pinMount(){
+  const T = ORIGINAL_TUNING;
+  const r = interaction.aId === 'yy' ? yy : dad;          // aId=骑手(建立时的主动方)
+  const v = r === yy ? dad : yy;
+  v.axFp = interaction.pairAnchor[0]; v.ayFp = FOOT_SURF_Fp;
+  r.axFp = interaction.pairAnchor[0]; r.ayFp = FOOT_SURF_Fp - T.mountSeatFp;
+  r.dir = interaction.facing;
+}
+/* 拉脚钉位: 抓住=被拉者钉在水面抓住点; 拖拽=沿锚点列沉入拉脚者深度; 释放由 LEGPULL_OFF 落地 */
+function pinLegpull(){
+  const T = ORIGINAL_TUNING;
+  const p = interaction.aId === 'yy' ? yy : dad;          // aId=拉脚者
+  const v = p === yy ? dad : yy;
+  p.axFp = v.axFp = interaction.pairAnchor[0];
+  p.ayFp = interaction.pairAnchor[1];
+  if (interaction.phase === 'DRAG'){
+    const k = interaction.pairTick - T.legpullGrabTicks;
+    v.ayFp = FOOT_SURF_Fp + (((interaction.pairAnchor[1] - FOOT_SURF_Fp) * k / T.legpullDragTicks) | 0);
+  } else {
+    v.ayFp = interaction.phase === 'GRAB' ? FOOT_SURF_Fp : interaction.pairAnchor[1];
+  }
+}
 /* 逐tick状态hash(FNV-1a): 覆盖比赛/双方角色/粒子/交互, 供确定性双跑自检 */
 function hashState(){
   let h = 0x811c9dc5;
@@ -1493,11 +1828,14 @@ function hashState(){
     h ^= 124; h = Math.imul(h, 0x01000193);
   };
   mix(tickCount); mix(MATCH.ticksLeft); mix(MATCH.phase);
+  mix(medalRngState); mix(medalSpawnIn);           // 奖牌随机状态进hash(确定性前提)
   for (const c of [yy, dad]){
     mix(c.axFp); mix(c.ayFp); mix(c.state); mix(c.t); mix(c.dir); mix(c.hpFp);
-    mix(c.airFp); mix(c.boostFp); mix(c.uwPose); mix(c.hitDir); mix(c.iid); mix(c.punchSeq);
+    mix(c.airFp); mix(c.maxHpFp); mix(c.stats.source); mix(c.boostFp); mix(c.uwPose); mix(c.hitDir); mix(c.iid); mix(c.punchSeq);
+    mix(c.input); mix(c.medals);                         // 输入源与奖牌数影响玩法, 进hash
   }
   for (const p of parts){ mix(p.type); mix(p.xFp); mix(p.yFp); mix(p.t); }
+  for (const m of poolMedals){ mix(m.xFp); mix(m.yFp); mix(m.vxFp); mix(m.t); }
   if (interaction){
     mix(interaction.id); mix(interaction.kind); mix(interaction.phase); mix(interaction.pairTick);
     mix(interaction.pairAnchor[0]); mix(interaction.pairAnchor[1]);
@@ -1521,17 +1859,26 @@ function resetMatch(){
     c.axFp = x; c.ayFp = FOOT_SURF_Fp; c.dir = d; c.prefDir = 0;
     c.state = ST.SURF; c.t = 0; c.boostFp = 0; c.swimT = 0; c.uwPose = 'H';
     c.jumpDir = 0; c.jumpX0Fp = x; c.emergeFromFp = 0;
-    c.airFp = T.airMaxFp; c.hpFp = T.hpMaxFp;
-    c.hitDir = 0; c.iid = null; c.punchSeq = 0;
+    c.airFp = T.airMaxFp; c.maxHpFp = profileMaxHpFp(c.id); c.hpFp = c.maxHpFp;
+    c.hitDir = 0; c.iid = null; c.punchSeq = 0; c.medals = 0;
   }
   parts.length = 0;
+  poolMedals.length = 0; medalSpawnIn = T.medalFirstTicks;
   interaction = null; nextIid = 1;                   // 交互状态随比赛一起重置(确定性双跑的前提)
+  medalRngState = 0x51A7E19;
 }
 function endMatch(w){
   MATCH.phase = 'OVER'; MATCH.winner = w; MATCH.overT = 0;
   interaction = null; yy.iid = dad.iid = null;       // 比赛结束时交互一并摘掉
-  for (const c of [yy, dad])
-    if (c.hpFp <= 0){ c.state = ST.LOSE; c.t = 0; c.ayFp = FOOT_SURF_Fp; }
+  /* B4(台账S-02): 败者必进LOSE —— 包括时间到按HP判负但HP未归零的情形, 不得冻结在原状态 */
+  const loser = w === 'yy' ? dad : w === 'dad' ? yy : null;
+  for (const c of [yy, dad]){
+    if (c === loser || (w === 'draw' && c.hpFp <= 0)){
+      c.state = ST.LOSE; c.t = 0; c.ayFp = FOOT_SURF_Fp; c.boostFp = 0;
+    } else {
+      c.state = ST.SURF; c.t = 0; c.ayFp = FOOT_SURF_Fp; c.boostFp = 0;   // 胜者/平局回水面定姿
+    }
+  }
 }
 function resolveMatch(){
   if (MATCH.phase !== 'FIGHT') return;
@@ -1555,16 +1902,33 @@ function tick(){
     const fx = resolvePair(sA, sB, dA, dB);                         // ③ 统一解析命中/优先级
     tickChar(yy, iA, dA); tickChar(dad, iB, dB);                    // ④ 同时提交(各自只写自己)
     applyFx(fx);                                                    // ④ 命中效果同一tick落地
-    if (interaction && interaction.kind === 'GRAPPLE') pinGrapple(); // 肩组共用接触锚点钉位
+    if (interaction){                                               // 成对交互共用接触锚点钉位(不得漂移/穿插)
+      if (interaction.kind === 'GRAPPLE') pinGrapple();
+      else if (interaction.kind === 'MOUNT') pinMount();
+      else if (interaction.kind === 'LEGPULL') pinLegpull();
+    }
     yy.iid = dad.iid = interaction ? interaction.id : null;         // 交互id与对象同tick原子挂/摘
     tickParts();
+    tickPoolMedals();
     resolveMatch();
   } else {
     MATCH.overT++;
+    for (const c of [yy, dad]) if (c.state === ST.LOSE) c.t++;      // B4: 败北占位帧两帧循环演出
     tickParts();
     if (MATCH.overT > 60 && Input.pStart) resetMatch();         // 结算后 1 秒才接受重开
   }
   Input.pA = 0; Input.pB = 0; Input.pStart = 0;                 // 边沿输入每tick消费
+  Input2.pA = 0; Input2.pB = 0;
+}
+
+/* ---------- 池底奖牌: 原版4px级橙/金硬边精灵, 从池底斜向上浮 ---------- */
+function drawPoolMedals(){
+  for (const m of poolMedals){
+    const x = m.xFp >> 8, y = m.yFp >> 8;
+    ctx.fillStyle = '#7C2818'; ctx.fillRect(x + 1, y, 2, 1); ctx.fillRect(x, y + 1, 4, 2); ctx.fillRect(x + 1, y + 3, 2, 1);
+    ctx.fillStyle = (m.t >> 3) & 1 ? '#F8B800' : '#FCFCFC'; ctx.fillRect(x + 1, y + 1, 1, 1);
+    ctx.fillStyle = '#F87818'; ctx.fillRect(x + 2, y + 2, 1, 1);
+  }
 }
 
 /* ---------- 游泳者渲染 (锚点定位; 左向=阶段2 left头像数据+身体逐像素翻转; BREATH两帧头像; DIVE/UW侧脸·垂直头) ---------- */
@@ -1577,7 +1941,8 @@ function drawSwimmers(){
     const f = SPRITES.frames[frameIdFor(c)];                 // 玩法只认契约, 不认像素来源
     const uw = c.state === ST.DIVE || c.state === ST.UW ||
                c.state === ST.EMERGE || c.state === ST.DROWN ||
-               c.state === ST.KICK || c.state === ST.HIT || isGrappleState(c.state);
+               c.state === ST.KICK || c.state === ST.HIT || isGrappleState(c.state) ||
+               c.state === ST.LEGPULL || c.state === ST.LEGPULLED;
     const colors = colorsFor(c, uw);
     const bob = (c.state === ST.SURF || c.state === ST.BREATH) &&
                 Math.floor(c.t / T.floatBobTicks) % 2 ? T.floatBobPx : 0;
@@ -1626,19 +1991,19 @@ function drawHUD(){
   ctx.fillRect(10, 216, 236, 1); ctx.fillRect(10, 218, 236, 1);
   ctx.fillRect(10, 169, 1, 50); ctx.fillRect(12, 169, 1, 50);
   ctx.fillRect(243, 169, 1, 50); ctx.fillRect(245, 169, 1, 50);
-  /* Row1: 1P YANGYANG | TIME | CPU DAD */
+  /* Row1: 1P YANGYANG | TIME | 2P DAD */
   drawText('1P', 18, 175, PAL.white);
   drawText('YANGYANG', 40, 175, PAL.white);
   drawTextC('TIME', 124, 175, PAL.white);
-  drawText('CPU', 146, 175, PAL.white);
+  drawText('2P', 146, 175, PAL.white);             // 右侧身份固定2P(2026-08-27起只有本地双人1v1)
   drawText('DAD', 178, 175, PAL.white);
   /* 倒计时 (3:00 → 0:00, 硬标准) */
   drawTextC(fmtTime(MATCH.ticksLeft), 124, 183, PAL.white);
   /* HP 行 (跟随角色 hp; 双方均从左向右减少) */
   drawText('HP', 25, 191, PAL.white);
-  ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 191, barW(yy.hpFp, ORIGINAL_TUNING.hpMaxFp, 60), 7);
+  ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 191, barW(yy.hpFp, yy.maxHpFp, 60), 7);
   drawText('HP', 150, 191, PAL.white);
-  ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 191, barW(dad.hpFp, ORIGINAL_TUNING.hpMaxFp, 61), 7);
+  ctx.fillStyle = PAL.hudBar; ctx.fillRect(168, 191, barW(dad.hpFp, dad.maxHpFp, 61), 7);
   /* Oxy 行 (跟随角色 air) */
   drawText('Oxy', 17, 208, PAL.white);
   ctx.fillStyle = PAL.hudBar; ctx.fillRect(40, 208, (yy.airFp * 63 / ORIGINAL_TUNING.airMaxFp) | 0, 7);
@@ -1651,6 +2016,7 @@ function render(){
   ctx.fillStyle = PAL.black; ctx.fillRect(0, 0, LW, LH);
   drawBackground();
   drawPool();
+  drawPoolMedals();
   drawSwimmers();
   drawResult();
   drawHUD();
@@ -1658,7 +2024,7 @@ function render(){
 }
 
 scriptMode = new URLSearchParams(location.search).get('script');
-const STEP = 1000 / 60;
+const STEP = 1000 / 60.0988138974405;    // FC NTSC 实际帧率(计划§9); 累加器有200ms补帧上限, 定点tick逻辑不受影响
 let acc = 0, lastTs = 0;
 function frame(ts){
   if (!lastTs) lastTs = ts;
@@ -1835,7 +2201,7 @@ if (qs.has('selftest')){
           if (Math.abs(postBb[e] - preBb[e]) > 10)
             errs.push(`bbox跳变@tick${i} ${pre}→${yy.state}: [${preBb}]→[${postBb}]`);
       if (yy.state === ST.JUMP) jumpRec = { dir: yy.jumpDir, x0: yy.axFp };
-      if (pre === ST.JUMP && jumpRec) jumps.push([jumpRec.dir, (yy.axFp - jumpRec.x0) / 256]);
+      if (pre === ST.JUMP && jumpRec) jumps.push([jumpRec.dir, (yy.axFp - jumpRec.x0) / 256, yy.state]);
       if (yy.state === ST.EMERGE){ emergeTick = i; boostBeforeEmerge = tr.length ? tr[tr.length - 1].boost : -1; }
     }
     if (yy.state === ST.DIVE) diveFrameSet.add(diveIdx(yy.t));
@@ -1872,11 +2238,16 @@ if (qs.has('selftest')){
      改为返回哨兵, 让自检把真正的首个错误报出来。 */
   const at = t => tr[t] || { st:'<轨迹早退>', ax:0, ay:0, boost:0, air:0, pose:'-' };
   if (tr.length < 800) errs.push('轨迹早退: 只跑到 tick' + tr.length + ' (上游断言已失败, 见前面的错误)');
-  /* 跳跃: 首跳垂直dx=0; 预选右+≥15px; 预选左-≤-15px */
+  /* 跳跃(2026-08-27返修): 跳跃距离无原版样本, 具体数值是ORIGINAL_TUNING估值, 不作PASS/FAIL。
+     只验证机制——垂直跳dx=0 / 预选右跳dx>0 / 预选左跳dx<0 / 左右镜像对称 / 三跳都落回SURF;
+     距离数值仅作观察值随结果打印 */
   if (jumps.length !== 3) errs.push('jumps=' + jumps.length + ' (应3: 垂直/右/左)');
   if (jumps[0] && (jumps[0][0] !== 0 || jumps[0][1] !== 0)) errs.push('垂直跳 dir=' + jumps[0][0] + ' dx=' + jumps[0][1]);
-  if (jumps[1] && (jumps[1][0] !== 1 || jumps[1][1] < 15)) errs.push('右跳 dir=' + jumps[1][0] + ' dx=' + jumps[1][1]);
-  if (jumps[2] && (jumps[2][0] !== -1 || jumps[2][1] > -15)) errs.push('左跳 dir=' + jumps[2][0] + ' dx=' + jumps[2][1]);
+  if (jumps[1] && (jumps[1][0] !== 1 || jumps[1][1] <= 0)) errs.push('右跳 dir=' + jumps[1][0] + ' dx=' + jumps[1][1]);
+  if (jumps[2] && (jumps[2][0] !== -1 || jumps[2][1] >= 0)) errs.push('左跳 dir=' + jumps[2][0] + ' dx=' + jumps[2][1]);
+  if (jumps[1] && jumps[2] && jumps[1][1] !== -jumps[2][1])
+    errs.push('跳跃左右不对称 dx=' + jumps[1][1] + '/' + jumps[2][1]);
+  for (const j of jumps) if (j[2] !== ST.SURF) errs.push('跳跃未回SURF 实际' + j[2]);
   /* 点按下潜弹回: 300..350不进UW, 345回SURF */
   if (tr.slice(300, 351).some(r => r.st === ST.UW || r.st === ST.EMERGE)) errs.push('点按下潜未弹回');
   if (at(345).st !== ST.SURF) errs.push('tick345应SURF 实际' + at(345).st);
@@ -1940,7 +2311,7 @@ if (qs.has('selftest')){
     resetMatch(); scriptMode = null;
     yy.state = ST.UW; yy.t = 0; yy.uwPose = 'H'; yy.axFp = FP(120); yy.ayFp = FP(140); yy.dir = 1;
     dad.state = ST.UW; dad.t = 0; dad.uwPose = 'H'; dad.axFp = FP(140); dad.ayFp = FP(140); dad.dir = -1;
-    const hpD0 = dad.hpFp, dadX0 = dad.axFp;
+    const hpD0 = dad.hpFp, airD0 = dad.airFp, dadX0 = dad.axFp;
     Input.pB = 1; Input.B = 1; tick(); Input.pB = 0; Input.B = 0;
     if (yy.state !== ST.KICK) errs.push('踢击: 水下pB未进KICK 实际' + yy.state);
     if (!interaction || interaction.kind !== 'KICK') errs.push('踢击: interaction未建立');
@@ -1950,8 +2321,11 @@ if (qs.has('selftest')){
     let hitTick = -1;
     for (let i = 0; i < 60 && hitTick < 0; i++){ tick(); if (dad.state === ST.HIT) hitTick = i; }
     if (hitTick < 0) errs.push('踢击: 对方未进HIT');
-    if (dad.hpFp !== hpD0 - T.kickDamageFp)
-      errs.push('踢击: 命中应恰好扣一次HP ' + (hpD0 / 256) + '->' + (dad.hpFp / 256));
+    const kickDmg = profileDamageFp(T.kickDamageFp, 'yy', 'dd');
+    if (dad.hpFp !== hpD0 - kickDmg)
+      errs.push('踢击: 命中应恰好扣一次属性修正HP ' + (hpD0 / 256) + '->' + (dad.hpFp / 256));
+    if (!(dad.airFp <= airD0 - T.kickAirDamageFp))
+      errs.push('踢击: 命中未额外扣空气');
     if (hitTick >= 0 && interaction && !interaction.appliedEvents['hit:yy'])
       errs.push('踢击: 命中事件未记入appliedEvents');
     for (let i = 0; i < 60 && (yy.state === ST.KICK || dad.state === ST.HIT); i++) tick();
@@ -1968,7 +2342,7 @@ if (qs.has('selftest')){
     if (yy.state !== ST.KICK || dad.state !== ST.KICK)
       errs.push('踢击: 同时起手失败 yy=' + yy.state + ' dad=' + dad.state);
     for (let i = 0; i < 30; i++) tick();
-    if (!(yy.hpFp < T.hpMaxFp && dad.hpFp < T.hpMaxFp))
+    if (!(yy.hpFp < yy.maxHpFp && dad.hpFp < dad.maxHpFp))
       errs.push('踢击: 同时起手未双向命中(存在先手偏差) yy=' + (yy.hpFp / 256) + ' dad=' + (dad.hpFp / 256));
     dad.input = 'IDLE';
     resetMatch();
@@ -1990,23 +2364,24 @@ if (qs.has('selftest')){
     resetMatch();
   }
   parts.length = 0;
-  /* E3. 肩组确定性+流程: 同一脚本(靠近→纠缠→两拳→被抓方连打挣脱)跑两遍, 逐tick hash一致;
-         顺带断言: 双方同时进入 / 出拳扣血恰好两拳 / 挣脱值路径先于无输入超时解开 / 全程一个interaction */
+  /* E3. 原版肩组确定性+流程: 双方接触后都可连打B互殴, 水下持续耗氧,
+         直到一方气绝/败北才解开; 不存在原创攻防身份、挣脱值或自动超时。 */
   {
     const run = () => {
       resetMatch(); scriptMode = null; tickCount = 0;
       const foeInp = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
-      InputSources.TEST = () => foeInp;                // 被抓方(爸爸)的独立输入源, 与 verify.js 同接口
+      InputSources.TEST = () => foeInp;                // 爸爸独立输入源, 与 verify.js 同接口
       dad.input = 'TEST';
       yy.state = ST.UW; yy.t = 0; yy.uwPose = 'H'; yy.dir = 1; yy.axFp = FP(110); yy.ayFp = FP(140);
       dad.state = ST.UW; dad.t = 0; dad.uwPose = 'H'; dad.dir = -1; dad.axFp = FP(130); dad.ayFp = FP(140);
       const hs = []; const iids = new Set();
-      let enterTick = -1, freeTick = -1; const hpD0 = dad.hpFp;
-      for (let i = 0; i < 400; i++){
+      let enterTick = -1, freeTick = -1; const hpD0 = dad.hpFp, hpY0 = yy.hpFp;
+      for (let i = 0; i < 900; i++){
         Input.R = i < 20 ? 1 : 0;
-        Input.B = Input.pB = (i === 40 || i === 70) ? 1 : 0;          // 攻击方两拳
-        /* 被抓方连打挣脱(只在仍被肩组时按, 解开后停按, 避免在水下误踢) */
-        foeInp.B = foeInp.pB = (i >= 90 && i % 2 === 0 && isGrappleState(dad.state)) ? 1 : 0;
+        const yPress = i >= 35 && i % 24 === 0 && isGrappleState(yy.state);
+        const dPress = i >= 35 && i % 18 === 0 && isGrappleState(dad.state);
+        Input.B = Input.pB = yPress ? 1 : 0;
+        foeInp.B = foeInp.pB = dPress ? 1 : 0;
         tick(); hs.push(hashState());
         if (interaction){ iids.add(interaction.id); }
         if (enterTick < 0 && isGrappleState(yy.state) && isGrappleState(dad.state)) enterTick = i;
@@ -2014,20 +2389,16 @@ if (qs.has('selftest')){
       }
       Input.R = 0; Input.B = 0; Input.pB = 0;
       dad.input = 'IDLE';
-      return { hs, iids, enterTick, freeTick, dmg: hpD0 - dad.hpFp, hpY: yy.hpFp };
+      return { hs, iids, enterTick, freeTick, dmgD: hpD0 - dad.hpFp, dmgY: hpY0 - yy.hpFp };
     };
     const r1 = run(), r2 = run();
     let gDiff = -1;
-    for (let i = 0; i < 400; i++) if (r1.hs[i] !== r2.hs[i]){ gDiff = i; break; }
+    for (let i = 0; i < 900; i++) if (r1.hs[i] !== r2.hs[i]){ gDiff = i; break; }
     if (gDiff >= 0) errs.push('肩组双跑分叉@tick' + gDiff);
     if (r1.enterTick < 0) errs.push('肩组: 未进入');
-    if (r1.freeTick < 0) errs.push('肩组: 未解开(永久锁死)');
-    /* 挣脱值12次×每2tick=24tick, 约i=113解开; 若无挣脱路径, 要等到最后输入(i≈128)+90tick超时 */
-    if (r1.freeTick >= 0 && r1.freeTick > 150)
-      errs.push('肩组: 解开@' + r1.freeTick + ' 太晚, 挣脱值路径未生效(走的像是无输入超时)');
-    if (r1.dmg !== 2 * T.punchDamageFp)
-      errs.push('肩组: 两拳扣血应为' + (2 * T.punchDamageFp / 256) + ' 实际' + (r1.dmg / 256));
-    if (r1.hpY !== T.hpMaxFp) errs.push('肩组: 被抓方挣扎不应反伤攻击方');
+    if (r1.freeTick < 0) errs.push('肩组: 一方气绝后仍未解开');
+    if (!(r1.dmgD > 0 && r1.dmgY > 0))
+      errs.push('肩组: 双方连打B没有互相造成伤害 yy=' + (r1.dmgY / 256) + ' dad=' + (r1.dmgD / 256));
     if (r1.iids.size !== 1) errs.push('肩组: 交互对象数=' + r1.iids.size + ' (应1)');
     delete InputSources.TEST;
     resetMatch();
@@ -2089,7 +2460,7 @@ if (qs.has('selftest')){
       dad: { x: dad.axFp / 256, y: dad.ayFp / 256, st: dad.state }, parts: parts.length });
 } else {
   fitCanvas();
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame);                    // 启动即双人1v1(yy='1P'/dad='2P'顶层固定), 自检/截图/验收脚本不受影响
 }
 </script>
 </body>

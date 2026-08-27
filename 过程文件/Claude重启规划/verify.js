@@ -49,9 +49,12 @@ function loadGame(file, search) {
 
   // 探针：把内部符号暴露出来供检查。加在末尾，不改动游戏代码本身。
   const probe = `;globalThis.__api = {
-    yy, dad, MATCH, tick, ST, SPRITES, Input, resetMatch, T: ORIGINAL_TUNING,
+    yy, dad, MATCH, tick, ST, SPRITES, Input, Input2, resetMatch, T: ORIGINAL_TUNING,
+    CHARACTER_PROFILES: (typeof CHARACTER_PROFILES !== 'undefined' ? CHARACTER_PROFILES : null),
+    poolMedals: (typeof poolMedals !== 'undefined' ? poolMedals : null),
     InputSources: (typeof InputSources !== 'undefined' ? InputSources : null),
     interaction: () => (typeof interaction !== 'undefined' ? interaction : null),
+    hashState: (typeof hashState !== 'undefined' ? hashState : null),
   };`;
   new Function(m[1] + probe)();
   return { api: globalThis.__api, title: global.document.title };
@@ -81,7 +84,7 @@ function checkKick(file) {
   set(A.yy, 1, 120);
   set(A.dad, -1, 138);
 
-  const hp0 = A.dad.hpFp;
+  const hp0 = A.dad.hpFp, air0 = A.dad.airFp;
   const iids = new Set();
   let entered = false;
   for (let i = 0; i < 120; i++) {
@@ -93,14 +96,13 @@ function checkKick(file) {
     if (A.yy.state === 'KICK') entered = true;
   }
   const dmg = (hp0 - A.dad.hpFp) / 256;
-  const ok = entered && dmg > 0 && iids.size === 1;
-  return { ok, note: `进KICK=${entered} 扣血=${dmg} 交互对象数=${iids.size}（应为1）` };
+  const airDmg = (air0 - A.dad.airFp) / 256;
+  const ok = entered && dmg > 0 && airDmg >= A.T.kickAirDamageFp / 256 && iids.size === 1;
+  return { ok, note: `进KICK=${entered} 扣血=${dmg} 掉氧=${airDmg.toFixed(1)} 交互对象数=${iids.size}（应为1）` };
 }
 
-/* B3a. 肩组：必须双方同时进入、出拳能扣血、只有一个交互对象、且**不会永久锁死**
-   （规格书 3.4 明确点名"禁止让两名角色各自猜测对方状态，否则会产生先手偏差、
-     穿插和永久锁死"，所以"能解开"和"能进入"同等重要，必须机器验证。）
-   未实现时跳过而不是失败：B3 之前的提交跑这个脚本也应该是绿的。 */
+/* B3a. 原版肩组：双方接触后都能连打B互殴，水下持续耗氧，直到一方气绝/败北。
+   不允许原创的固定攻守身份、连打挣脱值、无输入超时或强制上限。 */
 function checkGrapple(file) {
   const { api: A } = loadGame(file);
   if (!A.ST.GRAPPLE) return { skip: true, note: '未实现（B3 阶段实现后本项自动转为阻塞项）' };
@@ -112,9 +114,11 @@ function checkGrapple(file) {
   A.dad.state = A.ST.UW; A.dad.uwPose = 'H'; A.dad.dir = -1;
   A.dad.axFp = 130 * 256; A.dad.ayFp = 140 * 256;
 
-  const iids = new Set();
-  const kinds = new Set();
-  let bothIn = false, hp0 = A.dad.hpFp, dmg = 0;
+  const foe = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
+  A.InputSources.TEST = () => foe;
+  A.dad.input = 'TEST';
+  const iids = new Set(), kinds = new Set();
+  let bothIn = false;
 
   // 阶段一：朝对手游过去，应自动进入肩组
   A.Input.R = 1;
@@ -126,98 +130,40 @@ function checkGrapple(file) {
   }
   A.Input.R = 0;
 
-  // 阶段二：肩组中按 B 出拳，应扣血
-  for (let i = 0; i < 90; i++) {
-    if (i % 30 === 0) { A.Input.B = 1; A.Input.pB = 1; } else { A.Input.B = 0; A.Input.pB = 0; }
+  const hpY0 = A.yy.hpFp, hpD0 = A.dad.hpFp;
+  const airY0 = A.yy.airFp, airD0 = A.dad.airFp;
+
+  // 先完全不按键：肩组不能被原创 idle 超时放开，但双方空气必须继续下降。
+  let idleReleased = false;
+  for (let i = 0; i < 120; i++) {
     A.tick();
     const it = A.interaction();
     if (it) { iids.add(it.id); kinds.add(it.kind); }
+    if (!isGrap(A.yy.state) || !isGrap(A.dad.state)) { idleReleased = true; break; }
   }
-  dmg = (hp0 - A.dad.hpFp) / 256;
 
-  // 阶段三：松开全部输入，必须能解开。解不开就是永久锁死。
-  A.Input.B = 0; A.Input.pB = 0; A.Input.R = 0;
+  // 双方独立连打B，必须互相造成HP/空气伤害；最后由气绝/败北结束肩组。
   let freed = false;
-  for (let i = 0; i < 900 && !freed; i++) {
+  for (let i = 0; i < 1200 && !freed; i++) {
+    const yp = i % 24 === 0 && isGrap(A.yy.state);
+    const dp = i % 18 === 0 && isGrap(A.dad.state);
+    A.Input.B = A.Input.pB = yp ? 1 : 0;
+    foe.B = foe.pB = dp ? 1 : 0;
     A.tick();
-    if (!isGrap(A.yy.state) && !isGrap(A.dad.state)) freed = true;
+    const it = A.interaction();
+    if (it) { iids.add(it.id); kinds.add(it.kind); }
+    if (!isGrap(A.yy.state) || !isGrap(A.dad.state)) freed = true;
   }
-
-  const ok = bothIn && dmg > 0 && freed && iids.size >= 1 && kinds.has('GRAPPLE');
+  const dmgY = (hpY0 - A.yy.hpFp) / 256, dmgD = (hpD0 - A.dad.hpFp) / 256;
+  const airY = (airY0 - A.yy.airFp) / 256, airD = (airD0 - A.dad.airFp) / 256;
+  const ok = bothIn && !idleReleased && dmgY > 0 && dmgD > 0 && airY > 0 && airD > 0 &&
+             freed && iids.size === 1 && kinds.has('GRAPPLE');
   return {
     ok,
-    note: `双方同时进入=${bothIn} 出拳扣血=${dmg} 能解开=${freed}` +
-          `${freed ? '' : ' ← 永久锁死'} 交互对象数=${iids.size} kind=${[...kinds].join(',') || '无'}`,
+    note: `双方进入=${bothIn} idle误释放=${idleReleased} 双方扣血=${dmgY}/${dmgD}` +
+          ` 双方掉氧=${airY.toFixed(1)}/${airD.toFixed(1)} 气绝后解开=${freed}` +
+          ` 交互对象数=${iids.size}`,
   };
-}
-
-/* B3a-fix. 被肩组住的一方必须有活路（台账 S-07，用户 2026-08-25 拍板列为硬要求）
-   B3a 交付时"能解开"走的是 idleN 超时，而 idleN 会被**任何一方**的输入清零，
-   攻击方只要持续出拳，那条路径在真实对局中永远不触发 —— 机器判通过，实战仍是
-   "先抓住即赢"。所以这里换成实战判据：攻防双方同时连打，被抓方必须能在被打死
-   之前挣脱。给防守方单独接一个输入源，避免共用键盘造成的假象。 */
-function checkGrappleCounterplay(file) {
-  const { api: A } = loadGame(file);
-  if (!A.ST.GRAPPLE) return { skip: true, note: '肩组未实现' };
-  if (!A.InputSources) return { skip: true, note: '未暴露 InputSources，测不了' };
-
-  const isG = s => typeof s === 'string' && s.indexOf('GRAPPLE') >= 0;
-  const foe = { L:0,R:0,U:0,D:0,A:0,B:0,pA:0,pB:0 };
-  A.InputSources.TEST = () => foe;                    // 测试专用输入源，不改游戏代码
-
-  A.resetMatch();
-  A.yy.state = A.ST.UW; A.yy.uwPose = 'H'; A.yy.dir = 1;
-  A.yy.axFp = 110 * 256; A.yy.ayFp = 140 * 256;
-  A.dad.state = A.ST.UW; A.dad.uwPose = 'H'; A.dad.dir = -1;
-  A.dad.axFp = 130 * 256; A.dad.ayFp = 140 * 256;
-
-  A.Input.R = 1;
-  for (let i = 0; i < 200; i++) { A.tick(); if (isG(A.yy.state) && isG(A.dad.state)) break; }
-  A.Input.R = 0;
-  if (!isG(A.dad.state)) return { ok: false, note: '没能进入肩组，无法测试' };
-
-  A.dad.input = 'TEST';                               // 防守方从此刻起独立操作
-  const run = struggle => {
-    for (let n = 0; n < 1800; n++) {
-      A.Input.B = n % 8 < 4 ? 1 : 0;  A.Input.pB = (n % 8 === 0) ? 1 : 0; // 攻击方一直出拳
-      foe.B = struggle && n % 6 < 3 ? 1 : 0;
-      foe.pB = struggle && n % 6 === 0 ? 1 : 0;                            // 防守方是否挣扎
-      A.tick();
-      if (A.dad.hpFp <= 0) return { esc: false, s: (n + 1) / 60 };
-      if (!isG(A.dad.state)) return { esc: true, s: (n + 1) / 60 };
-    }
-    return { esc: null, s: 30 };
-  };
-
-  const st = run(true);
-  if (!st.esc)
-    return { ok: false, note: `连打挣扎仍${st.esc === null ? '卡住不动' : '被打死'}（${st.s.toFixed(1)} 秒），挣扎无效` };
-
-  // 反向验证：不挣扎就不该能脱身，否则"挣扎"只是个摆设（纯计时器也能骗过上一条）
-  const { api: B } = loadGame(file);                   // 换一份干净的世界重来
-  B.InputSources.TEST = () => foe;
-  const isG2 = isG;
-  B.resetMatch();
-  B.yy.state = B.ST.UW; B.yy.uwPose = 'H'; B.yy.dir = 1;
-  B.yy.axFp = 110 * 256; B.yy.ayFp = 140 * 256;
-  B.dad.state = B.ST.UW; B.dad.uwPose = 'H'; B.dad.dir = -1;
-  B.dad.axFp = 130 * 256; B.dad.ayFp = 140 * 256;
-  B.Input.R = 1;
-  for (let i = 0; i < 200; i++) { B.tick(); if (isG2(B.yy.state) && isG2(B.dad.state)) break; }
-  B.Input.R = 0;
-  B.dad.input = 'TEST';
-  let idleEsc = null, idleS = 30;
-  for (let n = 0; n < 1800; n++) {
-    B.Input.B = n % 8 < 4 ? 1 : 0; B.Input.pB = (n % 8 === 0) ? 1 : 0;
-    foe.B = 0; foe.pB = 0;                             // 防守方完全不动
-    B.tick();
-    if (B.dad.hpFp <= 0) { idleEsc = false; idleS = (n + 1) / 60; break; }
-    if (!isG2(B.dad.state)) { idleEsc = true; idleS = (n + 1) / 60; break; }
-  }
-  if (idleEsc)
-    return { ok: false, note: `挣扎 ${st.s.toFixed(1)} 秒脱身，但完全不动也能 ${idleS.toFixed(1)} 秒脱身 —— 挣扎没有意义` };
-
-  return { ok: true, note: `挣扎 ${st.s.toFixed(1)} 秒脱身（剩余HP ${A.dad.hpFp / 256}/${A.T.hpMaxFp / 256}）；不挣扎 ${idleS.toFixed(1)} 秒被打死` };
 }
 
 /* ---- B3b 骑头 / 拉脚（未实现时跳过，实现后自动转为阻塞项）----------------
@@ -310,6 +256,43 @@ function checkLegpull(file) {
   return { ok, note: `正下方触发=true 拖拽掉氧=${drains} 远处也能触发=${far.hit}（应为false）` };
 }
 
+/* C2. 池底奖牌：应按原版从池底斜向上浮，水下人物接触后拾取；不改变HP胜负。 */
+function checkMedals(file) {
+  const { api: A } = loadGame(file);
+  if (!A.poolMedals) return { ok: false, note: '没有池底奖牌系统' };
+  A.resetMatch();
+  A.yy.state = A.ST.UW; A.yy.uwPose = 'H'; A.yy.axFp = 20 * 256; A.yy.ayFp = 140 * 256;
+  A.dad.state = A.ST.SURF;
+  for (let i = 0; i < A.T.medalFirstTicks + 2; i++) A.tick();
+  if (!A.poolMedals.length) return { ok: false, note: '到首枚生成时机仍无奖牌' };
+  const m = A.poolMedals[0], y0 = m.yFp, hp0 = A.yy.hpFp;
+  A.yy.axFp = m.xFp; A.yy.ayFp = A.T.uwBotFp; // 池底横游, hurtbox覆盖正在上浮的奖牌
+  for (let i = 0; i < 60 && A.yy.medals === 0; i++) A.tick();
+  const ok = A.yy.medals === 1 && A.yy.hpFp === hp0 && A.poolMedals.length === 0;
+  return { ok, note: `生成=true 上浮=${m.yFp < y0} 拾取数=${A.yy.medals} HP未变=${A.yy.hpFp === hp0}` };
+}
+
+/* C3. 原版角色属性不能只写在注释里：不同 speed 必须真的产生不同水下位移，HP上限也要不同。 */
+function checkProfiles(file) {
+  const { api: A } = loadGame(file);
+  if (!A.CHARACTER_PROFILES) return { ok: false, note: '没有原版角色性能模板' };
+  A.resetMatch();
+  A.yy.state = A.dad.state = A.ST.UW;
+  A.yy.uwPose = A.dad.uwPose = 'H';
+  A.yy.axFp = 40 * 256; A.dad.axFp = 170 * 256;
+  A.yy.ayFp = A.dad.ayFp = 140 * 256;
+  A.dad.input = '1P';
+  const xY = A.yy.axFp, xD = A.dad.axFp;
+  A.Input.R = 1;
+  for (let i = 0; i < 20; i++) A.tick();
+  A.Input.R = 0;
+  const dy = A.yy.axFp - xY, dd = A.dad.axFp - xD;
+  const hpDifferent = A.yy.maxHpFp !== A.dad.maxHpFp;
+  const ok = A.yy.stats.source === 'KUNIO_JP' && A.dad.stats.source === 'TODD_USA' &&
+             hpDifferent && dy > dd && dd > 0;
+  return { ok, note: `模板=${A.yy.stats.source}/${A.dad.stats.source} HP上限=${A.yy.maxHpFp / 256}/${A.dad.maxHpFp / 256} 20tick位移=${(dy / 256).toFixed(2)}/${(dd / 256).toFixed(2)}` };
+}
+
 /* ---- B4 结算：时间到按 HP 判负时，败者必须进入 LOSE（台账 S-02 归此阶段）----
    判据：比赛结束后败者状态为 LOSE、胜者不是 LOSE。当前是"低血但未归零的败者
    会冻结在原状态"，所以本项现在是红的——它就是 B4 的靶子。 */
@@ -324,26 +307,154 @@ function checkResultPose(file) {
   return { ok, note: `败者(爸爸)状态=${A.dad.state}（应为LOSE） 胜者(阳阳)状态=${A.yy.state}` };
 }
 
-/* ---- B5 输入源：CPU 对局必须能自己打完一整局，且两遍完全一致 ----
-   未实现时跳过。B5 的核心是 tick() 不变、只换输入源，所以判据落在
-   "换成 CPU 后整局仍是确定性的"上。 */
-function checkCpuMatch(file) {
+/* ---- 2P 固定输入回放（2026-08-27 起替代「CPU 对局」）----
+   项目只做本地双人 1v1，没有 AI。本项用预先写死的双人按键序列驱动 Input/Input2：
+   - 两次运行逐 tick 比较 hashState() 完整状态哈希
+     （比赛状态/双方位置·状态·HP·氧气/interaction/奖牌与粒子均已纳入 hashState）；
+   - 必须出现至少一次真实的对手攻击命中：HIT 状态只能由对手攻击造成
+     （缺氧进的是 DROWN 不是 HIT），且攻击造成的 HP 损失与 DROWN 缺氧掉血分开统计，
+     不得用「任意 interaction + 任意 HP 损失」冒充战斗成立；
+   - 2P 侧必须有真实输入生效（证明双人输入通道都活着）。 */
+function check2PReplay(file) {
   const { api: A } = loadGame(file);
-  if (!A.InputSources || !A.InputSources.CPU) return { skip: true, note: '未实现（B5 阶段实现后转为阻塞项）' };
+  if (typeof A.hashState !== 'function') return { ok: false, note: '未暴露 hashState，无法做完整状态比对' };
+  /* 固定脚本：[tick, side, key, value]，side 1=1P(Input) 2=2P(Input2)。
+     场景：双方水下近距离对峙（与踢击检查同布局），1P 先踢，2P 后撤再回踢。
+     按键序列为写死的常量，无 AI、无随机决策、无 Math.random。 */
+  const SCRIPT = [
+    [2,   1, 'B', 1], [3,   1, 'B', 0],        // 1P 踢击 → 应命中 2P（进 HIT）
+    [50,  2, 'L', 1], [90,  2, 'L', 0],        // 2P 硬直结束后向左游开
+    [100, 1, 'R', 1], [140, 1, 'R', 0],        // 1P 向右追
+    [150, 2, 'B', 1], [151, 2, 'B', 0],        // 2P 回踢
+  ];
+  const TICKS = 200;
   const play = () => {
     const { api: G } = loadGame(file);
     G.resetMatch();
-    G.yy.input = 'CPU'; G.dad.input = 'CPU';
-    let h = 0;
-    for (let i = 0; i < G.T.matchTicks + 300 && G.MATCH.phase === 'FIGHT'; i++) {
+    G.yy.input = '1P'; G.dad.input = '2P';
+    G.yy.state = G.ST.UW; G.yy.uwPose = 'H'; G.yy.dir = 1;
+    G.yy.axFp = 120 * 256; G.yy.ayFp = 140 * 256;
+    G.dad.state = G.ST.UW; G.dad.uwPose = 'H'; G.dad.dir = -1;
+    G.dad.axFp = 136 * 256; G.dad.ayFp = 140 * 256;
+    const hashes = [], hits = [];
+    let drownLoss = 0, totalLossD = 0, prevHpD = G.dad.hpFp;
+    const dadX0 = G.dad.axFp;
+    for (let i = 0; i < TICKS; i++) {
+      for (const [t, side, k, v] of SCRIPT) if (t === i) {
+        const I = side === 1 ? G.Input : G.Input2;
+        if (k === 'A' && v) I.pA = 1;
+        if (k === 'B' && v) I.pB = 1;
+        I[k] = v;
+      }
+      const preD = G.dad.state, preY = G.yy.state;
       G.tick();
-      h = (Math.imul(h ^ (G.yy.hpFp + G.dad.hpFp + i), 0x01000193)) >>> 0;
+      if (G.dad.state === 'HIT' && preD !== 'HIT') hits.push({ t: i, victim: 'dad', by: 'yy' });
+      if (G.yy.state === 'HIT' && preY !== 'HIT') hits.push({ t: i, victim: 'yy', by: 'dad' });
+      const lostD = prevHpD - G.dad.hpFp;
+      if (lostD > 0) { totalLossD += lostD; if (G.dad.state === 'DROWN') drownLoss += lostD; }
+      prevHpD = G.dad.hpFp;
+      hashes.push(G.hashState());
     }
-    return { h, phase: G.MATCH.phase, winner: G.MATCH.winner, ticks: G.MATCH.ticksLeft };
+    return { hashes, hits, attackLoss: totalLossD - drownLoss, drownLoss,
+             dadMoved: G.dad.axFp !== dadX0 };
   };
   const a = play(), b = play();
-  const ok = a.phase !== 'FIGHT' && a.h === b.h;
-  return { ok, note: `打完=${a.phase !== 'FIGHT'} 胜者=${a.winner} 两遍一致=${a.h === b.h}` };
+  const same = a.hashes.length === b.hashes.length && a.hashes.every((h, i) => h === b.hashes[i]);
+  const ok = same && a.hits.length > 0 && a.attackLoss > 0 && a.dadMoved;
+  return { ok, note: `逐tick全态hash一致=${same}(${a.hashes.length}tick) ` +
+                     `攻击命中=${a.hits.length}次(${a.hits.map(h => h.by + '→' + h.victim + '@' + h.t).join(',') || '无'}) ` +
+                     `攻击致HP损失=${(a.attackLoss / 256).toFixed(1)} DROWN掉血=${(a.drownLoss / 256).toFixed(1)} ` +
+                     `2P输入生效=${a.dadMoved}` };
+}
+
+/* ---- 第一轮（2026-08-26 新开发计划）：水面锁位—方向预选—跳跃—下潜—上浮 状态链 ----
+   依据：用户裁决「水下可以接近，水面上只能跳跃到对面」（动作矩阵§1）；
+   说明书 P7–8（A跳跃/方向预选/按住↓潜る/水下十字移动）；diveTicks=10 为录像实测。 */
+function checkSurfLock(file) {
+  const run = key => {
+    const { api: G } = loadGame(file);
+    G.resetMatch();
+    const x0 = G.yy.axFp;
+    G.Input[key] = 1;
+    for (let i = 0; i < 600; i++) G.tick();
+    return { moved: G.yy.axFp !== x0, dir: G.yy.dir, pref: G.yy.prefDir, st: G.yy.state };
+  };
+  const r = run('R'), l = run('L');
+  const ok = !r.moved && !l.moved && r.dir === 1 && r.pref === 1 && l.dir === -1 && l.pref === -1 &&
+             r.st === 'SURF' && l.st === 'SURF';
+  return { ok, note: `按R600tick移动=${r.moved}（应false） dir/pref=${r.dir}/${r.pref}` +
+                     ` 按L600tick移动=${l.moved}（应false） dir/pref=${l.dir}/${l.pref}` };
+}
+
+function checkJumpDir(file) {
+  const jump = preset => {
+    const { api: G } = loadGame(file);
+    G.resetMatch();
+    if (preset) { G.Input[preset] = 1; for (let i = 0; i < 20; i++) G.tick(); G.Input[preset] = 0; }
+    const x0 = G.yy.axFp;
+    G.Input.A = 1; G.Input.pA = 1; G.tick();
+    G.Input.A = 0; G.Input.pA = 0;
+    const dir = G.yy.jumpDir;
+    for (let i = 0; i < 80 && G.yy.state !== 'SURF'; i++) G.tick();
+    return { dir, dx: (G.yy.axFp - x0) / 256, st: G.yy.state };
+  };
+  const v = jump(null), r = jump('R'), l = jump('L');
+  /* 机制断言（2026-08-27 返修）：跳跃距离无原版样本，具体数值是 ORIGINAL_TUNING 里的估值，
+     不能拿估值区间当通过标准。这里只验证方向预选机制成立：
+     垂直跳 dx=0、预选右跳向右位移、预选左跳向左位移、同参数下左右位移镜像对称。 */
+  const ok = v.dir === 0 && v.dx === 0 && r.dir === 1 && r.dx > 0 &&
+             l.dir === -1 && l.dx < 0 && r.dx === -l.dx &&
+             v.st === 'SURF' && r.st === 'SURF' && l.st === 'SURF';
+  return { ok, note: `垂直跳dx=${v.dx}（应0） 预选右跳dir=${r.dir} dx=${r.dx}（应>0）` +
+                     ` 预选左跳dir=${l.dir} dx=${l.dx}（应<0） 左右对称=${r.dx === -l.dx}（数值为估值，不作判据）` };
+}
+
+function checkDiveHold(file) {
+  // 按住↓：diveTicks+1±1 个 tick 内必须进 UW（selftest 已钉死精确值，这里守回归）
+  const { api: G } = loadGame(file);
+  G.resetMatch();
+  G.Input.D = 1;
+  let uwAt = -1;
+  for (let i = 0; i < 40 && uwAt < 0; i++) { G.tick(); if (G.yy.state === 'UW') uwAt = i; }
+  G.Input.D = 0;
+  const holdOk = uwAt >= 0 && (uwAt + 1) >= G.T.diveTicks && (uwAt + 1) <= G.T.diveTicks + 2;
+  // 点按（5 tick 松手）：不得进 UW，必须按 diveBackSpeed 弹回 SURF
+  const { api: H } = loadGame(file);
+  H.resetMatch();
+  H.Input.D = 1;
+  let tapUw = false;
+  for (let i = 0; i < 5; i++) { H.tick(); if (H.yy.state === 'UW') tapUw = true; }
+  H.Input.D = 0;
+  for (let i = 0; i < 40; i++) { H.tick(); if (H.yy.state === 'UW') tapUw = true; }
+  const backOk = !tapUw && H.yy.state === 'SURF';
+  const ok = holdOk && backOk;
+  return { ok, note: `按住↓${uwAt + 1}tick进UW（应${G.T.diveTicks + 1}±1） 点按误进UW=${tapUw}（应false）` +
+                     ` 点按弹回=${H.yy.state}（应SURF）` };
+}
+
+function checkEmerge(file) {
+  const { api: G } = loadGame(file);
+  G.resetMatch();
+  G.yy.state = G.ST.UW; G.yy.uwPose = 'U'; G.yy.axFp = 120 * 256; G.yy.ayFp = G.T.uwTopFp;
+  G.Input.U = 1;
+  let emergeAt = -1, surfAt = -1, mono = true, prevAy = null;
+  for (let i = 0; i < 60; i++) {
+    G.tick();
+    if (emergeAt >= 0 && G.yy.state === 'EMERGE') {
+      if (prevAy !== null && G.yy.ayFp > prevAy) mono = false;   // 上浮期间 y 不得回升
+      prevAy = G.yy.ayFp;
+    }
+    if (emergeAt < 0 && G.yy.state === 'EMERGE') { emergeAt = i; prevAy = G.yy.ayFp; }
+    if (G.yy.state === 'SURF') { surfAt = i; break; }
+  }
+  const dur = surfAt - emergeAt;
+  /* 行为断言（2026-08-27 返修）：emergeTicks 本身是估值，拿它检查实现自己等于循环论证。
+     这里只验证行为性质——UW 顶部按↑必进 EMERGE、上浮过程 y 单调不回升、
+     有限 tick 内回 SURF 且脚底回到水线锚点。时长数值只打印，不作判据。 */
+  const ok = emergeAt >= 0 && surfAt > 0 && mono && dur > 0 &&
+             G.yy.ayFp === G.T.surfFootY * 256;
+  return { ok, note: `UW顶按↑→${emergeAt + 1}tick进EMERGE 单调上浮=${mono} ${dur}tick回SURF` +
+                     `（时长${G.T.emergeTicks}为估值，不作判据） 脚底=${G.yy.ayFp / 256}（应${G.T.surfFootY}）` };
 }
 
 /* ============================ 观察项 ============================ */
@@ -404,9 +515,11 @@ for (const b of BUILDS) {
     continue;
   }
 
-  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['肩组', checkGrapple], ['被抓方的活路', checkGrappleCounterplay],
-                  ['骑头', checkMount], ['拉脚', checkLegpull],
-                  ['结算姿态', checkResultPose], ['CPU对局', checkCpuMatch]];
+  const checks = [['内置自检', checkSelftest], ['踢击命中', checkKick], ['原版肩组互殴', checkGrapple],
+                  ['骑头', checkMount], ['拉脚', checkLegpull], ['池底奖牌', checkMedals], ['角色属性', checkProfiles],
+                  ['结算姿态', checkResultPose], ['2P固定回放', check2PReplay],
+                  ['水面锁位', checkSurfLock], ['跳跃方向预选', checkJumpDir],
+                  ['按住下潜', checkDiveHold], ['上浮时序', checkEmerge]];
   for (const [name, fn] of checks) {
     let r;
     try { r = fn(file); } catch (e) { r = { ok: false, note: '抛异常：' + e.message }; }
